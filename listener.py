@@ -2,6 +2,7 @@ import speech_recognition as sr
 
 from brain import ask_vega
 from speaker import speak
+from apps import open_application
 
 
 recognizer = sr.Recognizer()
@@ -18,9 +19,7 @@ def listen(
 
     with sr.Microphone() as source:
 
-        print(
-            "\nListening..."
-        )
+        print("\n Listening...")
 
         try:
 
@@ -35,25 +34,18 @@ def listen(
                 phrase_time_limit=phrase_time_limit
             )
 
-            print(
-                "Processing voice..."
-            )
+            print("Processing voice...")
 
-            text = recognizer.recognize_google(
-                audio
-            )
+            text = recognizer.recognize_google(audio)
 
             return text.lower().strip()
 
         except sr.WaitTimeoutError:
-
             return None
 
         except sr.UnknownValueError:
 
-            print(
-                "Couldn't understand."
-            )
+            print("Couldn't understand.")
 
             return None
 
@@ -72,13 +64,8 @@ def listen(
 
 def wait_for_wake_word():
 
-    print(
-        "\nVEGA sleeping..."
-    )
-
-    print(
-        "Say 'Hey VEGA' to wake me."
-    )
+    print("\n VEGA sleeping...")
+    print("Say 'Hey VEGA' to wake me.")
 
     wake_words = [
         "hey vega",
@@ -108,14 +95,14 @@ def wait_for_wake_word():
         ):
 
             print(
-                "VEGA activated."
+                "⚡ VEGA activated."
             )
 
             return
 
 
 # =====================================
-# COMMAND CHECKS
+# SLEEP COMMAND
 # =====================================
 
 def should_sleep(command):
@@ -135,10 +122,14 @@ def should_sleep(command):
     )
 
 
+# =====================================
+# SHUTDOWN COMMAND
+# =====================================
+
 def should_shutdown(command):
 
     shutdown_phrases = [
-        "shutdown vega",  
+        "shutdown vega",
         "shut down vega",
         "exit vega",
         "quit vega",
@@ -153,22 +144,42 @@ def should_shutdown(command):
 
 
 # =====================================
-# ACTIVE CONVERSATION
+# APP NAME CLEANER
+# =====================================
+
+def extract_app_name(command):
+
+    command = command.lower().strip()
+
+    # Remove "vega" if user says:
+    # "vega open chrome"
+
+    command = command.replace(
+        "vega",
+        ""
+    ).strip()
+
+    if command.startswith("open "):
+
+        return command.replace(
+            "open ",
+            "",
+            1
+        ).strip()
+
+    return None
+
+
+# =====================================
+# ACTIVE CONVERSATION MODE
 # =====================================
 
 def conversation_mode():
 
-    speak(
-        "Yes boss?"
-    )
+    speak("Yes boss?")
 
-    print(
-        "\nVEGA ACTIVE"
-    )
-
-    print(
-        "You can now talk normally."
-    )
+    print("\n VEGA ACTIVE")
+    print("You can now talk normally.")
 
     while True:
 
@@ -184,13 +195,11 @@ def conversation_mode():
             f"\n You: {command}"
         )
 
-        # -----------------------------
-        # SHUTDOWN JARVIS COMPLETELY
-        # -----------------------------
+        # =================================
+        # SHUTDOWN VEGA COMPLETELY
+        # =================================
 
-        if should_shutdown(
-            command
-        ):
+        if should_shutdown(command):
 
             speak(
                 "Alright boss. "
@@ -200,13 +209,12 @@ def conversation_mode():
 
             return "shutdown"
 
-        # -----------------------------
-        # SLEEP
-        # -----------------------------
 
-        if should_sleep(
-            command
-        ):
+        # =================================
+        # GO TO SLEEP
+        # =================================
+
+        if should_sleep(command):
 
             speak(
                 "Alright boss. "
@@ -216,33 +224,70 @@ def conversation_mode():
 
             return "sleep"
 
-        # -----------------------------
-        # SEND COMMAND TO AI
-        # -----------------------------
+
+        # =================================
+        # OPEN APPLICATION
+        # =================================
+
+        app_name = extract_app_name(
+            command
+        )
+
+        if app_name:
+
+            try:
+
+                success, message = open_application(
+                    app_name
+                )
+
+                speak(
+                    message
+                )
+
+            except Exception as error:
+
+                print(
+                    f" App Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't open that application."
+                )
+
+            # IMPORTANT:
+            # VEGA remains active after opening app
+
+            continue
+
+
+        # =================================
+        # NORMAL AI CONVERSATION
+        # =================================
 
         try:
 
             print(
-                "VEGA is thinking..."
+                " VEGA is thinking..."
             )
 
             response = ask_vega(
                 command
             )
 
-            # Speak complete response
             speak(
                 response
             )
 
             print(
-                "\n Still active..."
+                "\n VEGA is still active..."
             )
 
         except Exception as error:
 
             print(
-                f"\nVEGA Error: {error}"
+                f"\n VEGA Error: {error}"
             )
 
             speak(
@@ -252,49 +297,65 @@ def conversation_mode():
 
 
 # =====================================
-# MAIN VEGA LOOP
+# MAIN
 # =====================================
 
 def main():
 
     print(
-        "\n=============================="
+        "\n================================"
     )
 
     print(
-        "        VEGA SYSTEM"
+        "          VEGA SYSTEM"
     )
 
     print(
-        "=============================="
+        "================================"
     )
 
     print(
-        "\n AI Brain: Ollama"
+        "\n🧠 AI Brain: Ollama"
     )
 
     print(
-        " Voice recognition: Ready"
+        "🎤 Voice Recognition: Ready"
     )
 
     print(
-        " Voice output: Ready"
+        "🔊 Voice Output: Ready"
     )
 
     print(
-        "\nVEGA online."
+        "💻 Application Control: Ready"
     )
+
+    print(
+        "\n VEGA online."
+    )
+
 
     try:
 
         while True:
 
-            # First wait for wake word
+            # -------------------------
+            # SLEEP MODE
+            # -------------------------
+
             wait_for_wake_word()
 
-            # Once awake, remain awake
-            # until user explicitly says sleep
+
+            # -------------------------
+            # ACTIVE MODE
+            # -------------------------
+
             result = conversation_mode()
+
+
+            # -------------------------
+            # FULL SHUTDOWN
+            # -------------------------
 
             if result == "shutdown":
 
@@ -304,9 +365,10 @@ def main():
 
                 break
 
-            # If result == sleep,
-            # while loop starts again
-            # and waits for wake word
+
+            # If result is "sleep",
+            # loop starts again and waits
+            # for "Hey VEGA"
 
 
     except KeyboardInterrupt:
@@ -317,7 +379,7 @@ def main():
 
 
 # =====================================
-# START
+# START PROGRAM
 # =====================================
 
 if __name__ == "__main__":
