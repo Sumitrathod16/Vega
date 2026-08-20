@@ -1,8 +1,17 @@
 import speech_recognition as sr
 
-from brain import ask_vega
+from brain import ask_vega      
 from speaker import speak
 from apps import open_application
+
+from system_control import (
+    volume_up,
+    volume_down,
+    mute,
+    unmute,
+    set_volume,
+    get_volume
+)
 
 
 recognizer = sr.Recognizer()
@@ -12,14 +21,11 @@ recognizer = sr.Recognizer()
 # LISTEN
 # =====================================
 
-def listen(
-    timeout=10,
-    phrase_time_limit=15
-):
+def listen(timeout=10, phrase_time_limit=15):
 
     with sr.Microphone() as source:
 
-        print("\n Listening...")
+        print("\nListening...")
 
         try:
 
@@ -44,17 +50,13 @@ def listen(
             return None
 
         except sr.UnknownValueError:
-
             print("Couldn't understand.")
-
             return None
 
         except sr.RequestError as error:
-
             print(
                 f"Speech recognition error: {error}"
             )
-
             return None
 
 
@@ -64,7 +66,7 @@ def listen(
 
 def wait_for_wake_word():
 
-    print("\n VEGA sleeping...")
+    print("\n😴 VEGA sleeping...")
     print("Say 'Hey VEGA' to wake me.")
 
     wake_words = [
@@ -85,24 +87,18 @@ def wait_for_wake_word():
         if not text:
             continue
 
-        print(
-            f"👂 Heard: {text}"
-        )
+        print(f"Heard: {text}")
 
         if any(
             wake_word in text
             for wake_word in wake_words
         ):
-
-            print(
-                "⚡ VEGA activated."
-            )
-
+            print("VEGA activated.")
             return
 
 
 # =====================================
-# SLEEP COMMAND
+# SLEEP
 # =====================================
 
 def should_sleep(command):
@@ -123,7 +119,7 @@ def should_sleep(command):
 
 
 # =====================================
-# SHUTDOWN COMMAND
+# SHUTDOWN
 # =====================================
 
 def should_shutdown(command):
@@ -144,15 +140,12 @@ def should_shutdown(command):
 
 
 # =====================================
-# APP NAME CLEANER
+# APP NAME EXTRACTOR
 # =====================================
 
 def extract_app_name(command):
 
     command = command.lower().strip()
-
-    # Remove "vega" if user says:
-    # "vega open chrome"
 
     command = command.replace(
         "vega",
@@ -171,14 +164,48 @@ def extract_app_name(command):
 
 
 # =====================================
-# ACTIVE CONVERSATION MODE
+# VOLUME VALUE EXTRACTOR
+# =====================================
+
+def extract_volume_level(command):
+
+    words = command.replace(
+        "%",
+        " "
+    ).split()
+
+    for word in words:
+
+        if word.isdigit():
+
+            level = int(word)
+
+            if 0 <= level <= 100:
+                return level
+
+    return None
+
+def extract_number(command):
+
+    command = command.replace("%", " ")
+
+    words = command.split()
+
+    for word in words:
+
+        if word.isdigit():
+            return int(word)
+
+    return None
+# =====================================
+# ACTIVE CONVERSATION
 # =====================================
 
 def conversation_mode():
 
     speak("Yes boss?")
 
-    print("\n VEGA ACTIVE")
+    print("\nVEGA ACTIVE")
     print("You can now talk normally.")
 
     while True:
@@ -191,12 +218,11 @@ def conversation_mode():
         if not command:
             continue
 
-        print(
-            f"\n You: {command}"
-        )
+        print(f"\nYou: {command}")
+
 
         # =================================
-        # SHUTDOWN VEGA COMPLETELY
+        # FULL SHUTDOWN
         # =================================
 
         if should_shutdown(command):
@@ -226,6 +252,239 @@ def conversation_mode():
 
 
         # =================================
+        # SET VOLUME
+        # =================================
+
+        if (
+            "set volume to" in command
+            or "set the volume to" in command
+        ):
+
+            try:
+
+                level = extract_volume_level(
+                    command
+                )
+
+                if level is None:
+
+                    speak(
+                        "Boss, tell me a volume level "
+                        "between zero and one hundred."
+                    )
+
+                else:
+
+                    message = set_volume(
+                        level
+                    )
+
+                    speak(message)
+
+            except Exception as error:
+
+                print(
+                    f"Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't change the volume."
+                )
+
+            continue
+
+
+        # =================================
+        # VOLUME UP
+        # =================================
+
+        if any(
+            phrase in command
+            for phrase in [
+                "volume up",
+                "increase volume",
+                "increase the volume",
+                "raise volume",
+                "raise the volume"
+            ]
+        ):
+
+            try:
+                
+                amount = extract_number(command)
+
+                if amount is None:
+                    amount = 10
+
+                message = volume_up()
+
+                speak(message)
+
+            except Exception as error:
+
+                print(
+                    f"❌ Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't increase the volume."
+                )
+
+            continue
+
+
+        # =================================
+        # VOLUME DOWN
+        # =================================
+
+        if any(
+            phrase in command
+            for phrase in [
+                "volume down",
+                "decrease volume",
+                "decrease the volume",
+                "lower volume",
+                "lower the volume"
+            ]
+        ):
+
+            try:
+                amount = extract_number(command)
+
+                if amount is None:
+                    amount = 10
+
+                message = volume_down(amount)
+
+                speak(message)
+
+            except Exception as error:
+
+                print(
+                    f"❌ Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't decrease the volume."
+                )
+
+            continue
+
+
+        # =================================
+        # UNMUTE
+        # IMPORTANT: Check before mute,
+        # because "unmute" contains "mute"
+        # =================================
+
+        if any(
+            phrase in command
+            for phrase in [
+                "unmute",
+                "unmute volume",
+                "unmute the volume",
+                "turn sound on",
+                "turn the sound on"
+            ]
+        ):
+
+            try:
+
+                message = unmute()
+
+                speak(message)
+
+            except Exception as error:
+
+                print(
+                    f"❌ Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't unmute the volume."
+                )
+
+            continue
+
+
+        # =================================
+        # MUTE
+        # =================================
+
+        if any(
+            phrase in command
+            for phrase in [
+                "mute",
+                "mute volume",
+                "mute the volume",
+                "turn sound off",
+                "turn the sound off"
+            ]
+        ):  
+
+            try:
+
+                message = mute()
+
+                speak(message)
+
+            except Exception as error:
+
+                print(
+                    f"❌ Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't mute the volume."
+                )
+
+            continue
+
+
+        # =================================
+        # GET CURRENT VOLUME
+        # =================================
+
+        if any(
+            phrase in command
+            for phrase in [
+                "current volume",
+                "what is the volume",
+                "what's the volume",
+                "volume level",
+                "what is my volume",
+                "what's my volume"
+            ]
+        ):
+
+            try:
+
+                level = get_volume()
+
+                speak(
+                    f"Current volume is {level} percent."
+                )
+
+            except Exception as error:
+
+                print(
+                    f"❌ Volume Error: {error}"
+                )
+
+                speak(
+                    "Sorry boss. "
+                    "I couldn't read the current volume."
+                )
+
+            continue
+
+
+        # =================================
         # OPEN APPLICATION
         # =================================
 
@@ -241,23 +500,18 @@ def conversation_mode():
                     app_name
                 )
 
-                speak(
-                    message
-                )
+                speak(message)
 
             except Exception as error:
 
                 print(
-                    f" App Error: {error}"
+                    f"❌ App Error: {error}"
                 )
 
                 speak(
                     "Sorry boss. "
                     "I couldn't open that application."
                 )
-
-            # IMPORTANT:
-            # VEGA remains active after opening app
 
             continue
 
@@ -269,7 +523,7 @@ def conversation_mode():
         try:
 
             print(
-                " VEGA is thinking..."
+                "🧠 VEGA is thinking..."
             )
 
             response = ask_vega(
@@ -281,13 +535,13 @@ def conversation_mode():
             )
 
             print(
-                "\n VEGA is still active..."
+                "\n🟢 VEGA is still active..."
             )
 
         except Exception as error:
 
             print(
-                f"\n VEGA Error: {error}"
+                f"\n❌ VEGA Error: {error}"
             )
 
             speak(
@@ -314,72 +568,41 @@ def main():
         "================================"
     )
 
-    print(
-        "\n🧠 AI Brain: Ollama"
-    )
+    print("\n🧠 AI Brain: Ollama")
+    print("🎤 Voice Recognition: Ready")
+    print("🔊 Voice Output: Ready")
+    print("💻 Application Control: Ready")
+    print("🔉 Volume Control: Ready")
 
-    print(
-        "🎤 Voice Recognition: Ready"
-    )
-
-    print(
-        "🔊 Voice Output: Ready"
-    )
-
-    print(
-        "💻 Application Control: Ready"
-    )
-
-    print(
-        "\n VEGA online."
-    )
+    print("\nVEGA online.")
 
 
     try:
 
         while True:
 
-            # -------------------------
-            # SLEEP MODE
-            # -------------------------
-
             wait_for_wake_word()
 
-
-            # -------------------------
-            # ACTIVE MODE
-            # -------------------------
-
             result = conversation_mode()
-
-
-            # -------------------------
-            # FULL SHUTDOWN
-            # -------------------------
 
             if result == "shutdown":
 
                 print(
-                    "\n VEGA OFFLINE"
+                    "\n🔴 VEGA OFFLINE"
                 )
 
                 break
 
 
-            # If result is "sleep",
-            # loop starts again and waits
-            # for "Hey VEGA"
-
-
     except KeyboardInterrupt:
 
         print(
-            "\n\n VEGA manually stopped."
+            "\n\n🛑 VEGA manually stopped."
         )
 
 
 # =====================================
-# START PROGRAM
+# START
 # =====================================
 
 if __name__ == "__main__":
