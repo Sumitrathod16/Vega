@@ -71,3 +71,36 @@ def ask_vega(user_message):
     )
 
     return answer
+    
+
+def ask_vega_with_web(
+    question,
+    search_results
+):
+
+    web_prompt = f"""
+The user asked:
+
+{question}
+
+I searched the internet and found these results:
+
+{search_results}
+
+Answer the user's question using the search results above.
+
+Important rules:
+
+1. Base current facts on the supplied search results.
+2. Do not invent information that is not supported by them.
+3. If the results don't contain enough information, say so.
+4. Give a concise natural spoken answer.
+5. Do not read URLs aloud.
+6. Do not use markdown unless necessary.
+7. Mention the source/site name naturally when useful.
+8. Your answer will be spoken aloud by VEGA.
+"""
+
+    return ask_vega(
+        web_prompt
+    )    

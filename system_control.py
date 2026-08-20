@@ -98,5 +98,5 @@ if __name__ == "__main__":
     except Exception as error:
 
         print(
-            f"❌ Volume system error: {error}"
+            f"Volume system error: {error}"
         )

@@ -1,50 +1,125 @@
 import asyncio
 import edge_tts
 import pygame
+
 import os
 import tempfile
 import uuid
+import threading
+import time
 
 
 VOICE = "en-US-GuyNeural"
 
 
-async def create_audio(text, file_path):
+stop_speaking = threading.Event()
+
+# CREATE AUDIO
+
+async def create_audio(
+    text,
+    file_path
+):
+
     communicate = edge_tts.Communicate(
         text=text,
         voice=VOICE
     )
-    await communicate.save(file_path)
+
+    await communicate.save(
+        file_path
+    )
 
 
-def speak(text):
-    print(f"\n VEGA: {text}")
+# STOP SPEECH
+
+def stop_voice():
+
+    stop_speaking.set()
 
     try:
-        file_path = os.path.join(
-            tempfile.gettempdir(),
-            f"vega_{uuid.uuid4().hex}.mp3"
+
+        if pygame.mixer.get_init():
+
+            pygame.mixer.music.stop()
+
+    except Exception as error:
+
+        print(
+            f" Stop voice error: {error}"
         )
 
+
+# SPEAK
+
+def speak(text):
+
+    stop_speaking.clear()
+
+    print(
+        f"\nVEGA: {text}"
+    )
+
+    file_path = os.path.join(
+        tempfile.gettempdir(),
+        f"vega_{uuid.uuid4().hex}.mp3"
+    )
+
+    try:
+
         asyncio.run(
-            create_audio(text, file_path)
+            create_audio(
+                text,
+                file_path
+            )
         )
 
         if not pygame.mixer.get_init():
+
             pygame.mixer.init()
 
-        pygame.mixer.music.load(file_path)
+        pygame.mixer.music.load(
+            file_path
+        )
+
         pygame.mixer.music.play()
 
         while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(20)
 
-        pygame.mixer.music.unload()
+            if stop_speaking.is_set():
+
+                pygame.mixer.music.stop()
+
+                break
+
+            time.sleep(
+                0.05
+            )
 
         try:
-            os.remove(file_path)
-        except:
+
+            pygame.mixer.music.unload()
+
+        except Exception:
             pass
 
     except Exception as error:
-        print(f"Voice Error: {error}")
+
+        print(
+            f" Voice Error: {error}"
+        )
+
+    finally:
+
+        try:
+
+            if os.path.exists(
+                file_path
+            ):
+
+                os.remove(
+                    file_path
+                )
+
+        except Exception:
+            pass
