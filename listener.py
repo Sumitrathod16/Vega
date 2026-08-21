@@ -325,7 +325,7 @@ def extract_app_name(command):
 def is_screen_command(command):
 
     screen_phrases = [
-        "what is on my screen",
+       "what is on my screen",
         "what's on my screen",
         "what do you see",
         "what can you see",
@@ -335,7 +335,39 @@ def is_screen_command(command):
         "analyze my screen",
         "analyse my screen",
         "describe my screen",
-        "explain my screen"
+
+        "explain this error",
+        "what is this error",
+        "what's this error",
+        "fix this error",
+        "help me with this error",
+
+        "what is wrong with this code",
+        "what's wrong with this code",
+        "check this code",
+        "explain this code",
+
+        "summarize this page",
+        "summarise this page",
+        "read this page",
+        "explain this page",
+
+        "read this message",
+        "explain this message",
+
+         "what should i click",
+        "where should i click",
+        "which button should i press",
+        "which button should i click",
+        "what should i press",
+        "what should i do next",
+        "what should i do here",
+        "where should i go",
+        "where should i go from here",
+        "how do i continue",
+        "guide me",
+        "guide me on this screen",
+        "help me with this screen"
     ]
 
     return any(
