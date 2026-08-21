@@ -1,6 +1,62 @@
 from ollama import chat
 
 
+def should_use_web(user_message):
+
+    prompt = f"""
+You are a routing system for VEGA.
+
+Decide whether the user's question requires current or real-time internet information.
+
+Use web search for:
+- latest news
+- current events
+- today's information
+- weather
+- sports scores/results
+- current prices
+- current software versions
+- current jobs/hiring
+- current company information
+- current political figures
+- recent releases
+- anything that may have changed recently
+
+Do NOT use web search for:
+- programming explanations
+- general knowledge
+- definitions
+- mathematics
+- casual conversation
+- coding help
+- historical facts that are unlikely to change
+
+User message:
+{user_message}
+
+Reply with ONLY one word:
+
+WEB
+
+or
+
+LOCAL
+"""
+
+    response = chat(
+        model="llama3.2:3b",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    decision = response.message.content.strip().upper()
+
+    return decision.startswith("WEB")
+
 SYSTEM_PROMPT = """
 You are VEGA, a personal AI assistant.
 

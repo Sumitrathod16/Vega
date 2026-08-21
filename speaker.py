@@ -1,7 +1,6 @@
 import asyncio
 import edge_tts
 import pygame
-
 import os
 import tempfile
 import uuid
@@ -11,15 +10,10 @@ import time
 
 VOICE = "en-US-GuyNeural"
 
-
 stop_speaking = threading.Event()
 
-# CREATE AUDIO
-
-async def create_audio(
-    text,
-    file_path
-):
+#CREATE AUDIO
+async def create_audio(text, file_path):
 
     communicate = edge_tts.Communicate(
         text=text,
@@ -31,9 +25,20 @@ async def create_audio(
     )
 
 
-# STOP SPEECH
-
 def stop_voice():
+
+    stop_speaking.set()
+
+    try:
+
+        if pygame.mixer.get_init():
+            pygame.mixer.music.stop()
+
+    except Exception:
+        pass
+
+
+def shutdown_audio():
 
     stop_speaking.set()
 
@@ -43,15 +48,18 @@ def stop_voice():
 
             pygame.mixer.music.stop()
 
-    except Exception as error:
+            try:
+                pygame.mixer.music.unload()
 
-        print(
-            f" Stop voice error: {error}"
-        )
+            except Exception:
+                pass
 
+            pygame.mixer.quit()
 
-# SPEAK
+    except Exception:
+        pass
 
+#SPEAK AUDIO
 def speak(text):
 
     stop_speaking.clear()
@@ -75,7 +83,6 @@ def speak(text):
         )
 
         if not pygame.mixer.get_init():
-
             pygame.mixer.init()
 
         pygame.mixer.music.load(
@@ -92,12 +99,9 @@ def speak(text):
 
                 break
 
-            time.sleep(
-                0.05
-            )
+            time.sleep(0.05)
 
         try:
-
             pygame.mixer.music.unload()
 
         except Exception:
@@ -106,20 +110,29 @@ def speak(text):
     except Exception as error:
 
         print(
-            f" Voice Error: {error}"
+            f"Voice Error: {error}"
         )
 
     finally:
 
         try:
 
-            if os.path.exists(
-                file_path
-            ):
-
-                os.remove(
-                    file_path
-                )
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+
+    try:
+
+        speak(
+            "Hello boss. "
+            "VEGA voice system is working."
+        )
+
+    finally:
+
+        shutdown_audio()
