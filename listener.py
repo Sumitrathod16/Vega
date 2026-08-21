@@ -1,5 +1,10 @@
-import speech_recognition as sr
+import os
+import tempfile
 import threading
+
+import speech_recognition as sr
+
+from faster_whisper import WhisperModel
 
 from brain import (
     ask_vega,
@@ -29,21 +34,137 @@ from screen_reader import analyze_screen
 
 
 recognizer = sr.Recognizer()
+
+recognizer.dynamic_energy_threshold = True
+recognizer.energy_threshold = 300
+recognizer.pause_threshold = 0.7
+recognizer.non_speaking_duration = 0.3
+
 interrupt_listener_stop = threading.Event()
 
 
-# Listening
-def listen(timeout=10, phrase_time_limit=15):
+# Whisper Model
+print("Loading VEGA speech recognition model...")
+
+whisper_model = WhisperModel(
+    "small",
+    device="cpu",
+    compute_type="int8"
+)
+
+print("Speech recognition model ready.")
+
+
+# Microphone Calibration
+def calibrate_microphone():
 
     try:
 
         with sr.Microphone() as source:
 
-            print("\nListening...")
+            print(
+                "Calibrating microphone..."
+            )
 
             recognizer.adjust_for_ambient_noise(
                 source,
-                duration=0.3
+                duration=1
+            )
+
+            print(
+                f"Microphone ready. Energy threshold: "
+                f"{recognizer.energy_threshold}"
+            )
+
+    except Exception as error:
+
+        print(
+            f"Microphone calibration error: {error}"
+        )
+
+
+# Speech Transcription
+def transcribe_audio(audio):
+
+    audio_path = os.path.join(
+        tempfile.gettempdir(),
+        "vega_input.wav"
+    )
+
+    try:
+
+        with open(
+            audio_path,
+            "wb"
+        ) as file:
+
+            file.write(
+                audio.get_wav_data()
+            )
+
+        segments, info = whisper_model.transcribe(
+            audio_path,
+            beam_size=1,
+            vad_filter=True,
+            condition_on_previous_text=False
+        )
+
+        text_parts = []
+
+        for segment in segments:
+
+            segment_text = segment.text.strip()
+
+            if segment_text:
+                text_parts.append(
+                    segment_text
+                )
+
+        text = " ".join(
+            text_parts
+        ).strip()
+
+        if not text:
+            return None
+
+        return text.lower()
+
+    except Exception as error:
+
+        print(
+            f"Transcription error: {error}"
+        )
+
+        return None
+
+    finally:
+
+        try:
+
+            if os.path.exists(
+                audio_path
+            ):
+
+                os.remove(
+                    audio_path
+                )
+
+        except Exception:
+            pass
+
+
+# Listening
+def listen(
+    timeout=8,
+    phrase_time_limit=10
+):
+
+    try:
+
+        with sr.Microphone() as source:
+
+            print(
+                "\nListening..."
             )
 
             audio = recognizer.listen(
@@ -52,27 +173,23 @@ def listen(timeout=10, phrase_time_limit=15):
                 phrase_time_limit=phrase_time_limit
             )
 
-            print("Processing voice...")
+        print(
+            "Processing voice..."
+        )
 
-            text = recognizer.recognize_google(
-                audio
+        text = transcribe_audio(
+            audio
+        )
+
+        if text:
+
+            print(
+                f"Recognized: {text}"
             )
 
-            return text.lower().strip()
+        return text
 
     except sr.WaitTimeoutError:
-        return None
-
-    except sr.UnknownValueError:
-
-        print("Couldn't understand.")
-        return None
-
-    except sr.RequestError as error:
-
-        print(
-            f"Speech recognition error: {error}"
-        )
 
         return None
 
@@ -82,16 +199,12 @@ def listen(timeout=10, phrase_time_limit=15):
             f"Microphone error: {error}"
         )
 
-        print(
-            "Retrying microphone..."
-        )
-
         return None
 
     except Exception as error:
 
         print(
-            f"Unexpected microphone error: {error}"
+            f"Listening error: {error}"
         )
 
         return None
@@ -105,15 +218,9 @@ def listen_for_interruption():
         "stop vega",
         "vega stop",
         "pause",
-        "pause vega",
         "wait",
-        "wait vega",
         "hold on",
-        "hold on vega",
         "stop talking",
-        "pause talking",
-        "wait a moment",
-        "hold on a second",
         "enough"
     ]
 
@@ -130,17 +237,13 @@ def listen_for_interruption():
         if not command:
             continue
 
-        print(
-            f"Interrupt listener heard: {command}"
-        )
-
         if any(
             phrase in command
             for phrase in interrupt_phrases
         ):
 
             print(
-                "\nVEGA speech interrupted."
+                "VEGA speech interrupted."
             )
 
             stop_voice()
@@ -172,11 +275,7 @@ def speak_with_interrupt(text):
     interrupt_listener_stop.set()
 
     interrupt_thread.join(
-        timeout=3
-    )
-
-    print(
-        "\nVEGA ready for next command."
+        timeout=2
     )
 
 
@@ -187,16 +286,11 @@ def wait_for_wake_word():
         "\nVEGA sleeping..."
     )
 
-    print(
-        "Say 'Hey VEGA' to wake me."
-    )
-
     wake_words = [
         "hey vega",
         "hello vega",
-        "ok vega",
         "okay vega",
-        "vega"
+        "ok vega"
     ]
 
     while True:
@@ -209,13 +303,9 @@ def wait_for_wake_word():
         if not text:
             continue
 
-        print(
-            f"Heard: {text}"
-        )
-
         if any(
-            wake_word in text
-            for wake_word in wake_words
+            phrase in text
+            for phrase in wake_words
         ):
 
             print(
@@ -228,7 +318,7 @@ def wait_for_wake_word():
 # Sleep Commands
 def should_sleep(command):
 
-    sleep_phrases = [
+    phrases = [
         "go to sleep",
         "go back to sleep",
         "sleep vega",
@@ -239,14 +329,14 @@ def should_sleep(command):
 
     return any(
         phrase in command
-        for phrase in sleep_phrases
+        for phrase in phrases
     )
 
 
 # Shutdown Commands
 def should_shutdown(command):
 
-    shutdown_phrases = [
+    phrases = [
         "shutdown vega",
         "shut down vega",
         "exit vega",
@@ -257,21 +347,19 @@ def should_shutdown(command):
 
     return any(
         phrase in command
-        for phrase in shutdown_phrases
+        for phrase in phrases
     )
 
 
 # Search Query
 def extract_search_query(command):
 
-    command = command.lower().strip()
-
-    command = command.replace(
+    clean_command = command.replace(
         "vega",
         ""
     ).strip()
 
-    search_phrases = [
+    phrases = [
         "search the web for",
         "search internet for",
         "search the internet for",
@@ -282,11 +370,11 @@ def extract_search_query(command):
         "google"
     ]
 
-    for phrase in search_phrases:
+    for phrase in phrases:
 
-        if phrase in command:
+        if phrase in clean_command:
 
-            query = command.replace(
+            query = clean_command.replace(
                 phrase,
                 "",
                 1
@@ -300,8 +388,6 @@ def extract_search_query(command):
 
 # App Name
 def extract_app_name(command):
-
-    command = command.lower().strip()
 
     command = command.replace(
         "vega",
@@ -324,55 +410,26 @@ def extract_app_name(command):
 # Screen Command
 def is_screen_command(command):
 
-    screen_phrases = [
-       "what is on my screen",
-        "what's on my screen",
+    screen_words = [
+        "screen",
+        "this error",
+        "this code",
+        "this page",
+        "this message",
+        "what should i click",
+        "which button",
+        "where should i click",
         "what do you see",
         "what can you see",
-        "read my screen",
-        "look at my screen",
-        "check my screen",
-        "analyze my screen",
-        "analyse my screen",
-        "describe my screen",
-
-        "explain this error",
-        "what is this error",
-        "what's this error",
-        "fix this error",
-        "help me with this error",
-
-        "what is wrong with this code",
-        "what's wrong with this code",
-        "check this code",
-        "explain this code",
-
-        "summarize this page",
-        "summarise this page",
-        "read this page",
-        "explain this page",
-
-        "read this message",
-        "explain this message",
-
-         "what should i click",
-        "where should i click",
-        "which button should i press",
-        "which button should i click",
-        "what should i press",
-        "what should i do next",
-        "what should i do here",
-        "where should i go",
-        "where should i go from here",
-        "how do i continue",
-        "guide me",
-        "guide me on this screen",
-        "help me with this screen"
+        "look at this",
+        "look at my",
+        "check this",
+        "guide me"
     ]
 
     return any(
         phrase in command
-        for phrase in screen_phrases
+        for phrase in screen_words
     )
 
 
@@ -384,9 +441,7 @@ def extract_number(command):
         " "
     )
 
-    words = command.split()
-
-    for word in words:
+    for word in command.split():
 
         if word.isdigit():
             return int(word)
@@ -421,22 +476,18 @@ def conversation_mode():
         "\nVEGA ACTIVE"
     )
 
-    print(
-        "You can now talk normally."
-    )
-
     while True:
 
         command = listen(
-            timeout=15,
-            phrase_time_limit=20
+            timeout=10,
+            phrase_time_limit=12
         )
 
         if not command:
             continue
 
         print(
-            f"\nYou: {command}"
+            f"You: {command}"
         )
 
         # Shutdown
@@ -446,8 +497,7 @@ def conversation_mode():
 
             speak(
                 "Alright boss. "
-                "Shutting down VEGA. "
-                "See you later."
+                "Shutting down VEGA."
             )
 
             return "shutdown"
@@ -459,8 +509,7 @@ def conversation_mode():
 
             speak(
                 "Alright boss. "
-                "I'll go to sleep. "
-                "Just call me when you need me."
+                "I'll go to sleep."
             )
 
             return "sleep"
@@ -472,38 +521,20 @@ def conversation_mode():
             "set the volume to" in command
         ):
 
-            try:
+            level = extract_volume_level(
+                command
+            )
 
-                level = extract_volume_level(
-                    command
-                )
-
-                if level is None:
-
-                    speak(
-                        "Boss, tell me a volume level "
-                        "between zero and one hundred."
-                    )
-
-                else:
-
-                    message = set_volume(
-                        level
-                    )
-
-                    speak(
-                        message
-                    )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
+            if level is None:
 
                 speak(
-                    "Sorry boss. "
-                    "I couldn't change the volume."
+                    "Tell me the volume percentage."
+                )
+
+            else:
+
+                speak(
+                    set_volume(level)
                 )
 
             continue
@@ -515,40 +546,20 @@ def conversation_mode():
                 "volume up",
                 "increase volume",
                 "increase the volume",
-                "raise volume",
-                "raise the volume",
-                "turn volume up",
-                "turn the volume up"
+                "raise the volume"
             ]
         ):
 
-            try:
+            amount = extract_number(
+                command
+            )
 
-                amount = extract_number(
-                    command
-                )
+            if amount is None:
+                amount = 10
 
-                if amount is None:
-                    amount = 10
-
-                message = volume_up(
-                    amount
-                )
-
-                speak(
-                    message
-                )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
-
-                speak(
-                    "Sorry boss. "
-                    "I couldn't increase the volume."
-                )
+            speak(
+                volume_up(amount)
+            )
 
             continue
 
@@ -559,40 +570,20 @@ def conversation_mode():
                 "volume down",
                 "decrease volume",
                 "decrease the volume",
-                "lower volume",
-                "lower the volume",
-                "turn volume down",
-                "turn the volume down"
+                "lower the volume"
             ]
         ):
 
-            try:
+            amount = extract_number(
+                command
+            )
 
-                amount = extract_number(
-                    command
-                )
+            if amount is None:
+                amount = 10
 
-                if amount is None:
-                    amount = 10
-
-                message = volume_down(
-                    amount
-                )
-
-                speak(
-                    message
-                )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
-
-                speak(
-                    "Sorry boss. "
-                    "I couldn't decrease the volume."
-                )
+            speak(
+                volume_down(amount)
+            )
 
             continue
 
@@ -601,24 +592,13 @@ def conversation_mode():
             phrase in command
             for phrase in [
                 "unmute",
-                "unmute volume",
-                "unmute the volume",
-                "turn sound on",
-                "turn the sound on"
+                "turn sound on"
             ]
         ):
 
-            try:
-
-                speak(
-                    unmute()
-                )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
+            speak(
+                unmute()
+            )
 
             continue
 
@@ -627,24 +607,13 @@ def conversation_mode():
             phrase in command
             for phrase in [
                 "mute",
-                "mute volume",
-                "mute the volume",
-                "turn sound off",
-                "turn the sound off"
+                "turn sound off"
             ]
         ):
 
-            try:
-
-                speak(
-                    mute()
-                )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
+            speak(
+                mute()
+            )
 
             continue
 
@@ -655,26 +624,15 @@ def conversation_mode():
                 "current volume",
                 "what is the volume",
                 "what's the volume",
-                "volume level",
-                "what is my volume",
-                "what's my volume"
+                "volume level"
             ]
         ):
 
-            try:
+            level = get_volume()
 
-                level = get_volume()
-
-                speak(
-                    f"Current volume is "
-                    f"{level} percent."
-                )
-
-            except Exception as error:
-
-                print(
-                    f"Volume Error: {error}"
-                )
+            speak(
+                f"Current volume is {level} percent."
+            )
 
             continue
 
@@ -688,7 +646,6 @@ def conversation_mode():
             try:
 
                 speak(
-                    "Sure boss. "
                     "Let me check the web."
                 )
 
@@ -699,15 +656,10 @@ def conversation_mode():
                 if not search_results:
 
                     speak(
-                        "Sorry boss. "
                         "I couldn't find useful results."
                     )
 
                     continue
-
-                print(
-                    "VEGA is analyzing web results..."
-                )
 
                 response = ask_vega_with_web(
                     command,
@@ -721,12 +673,7 @@ def conversation_mode():
             except Exception as error:
 
                 print(
-                    f"Web Search Error: {error}"
-                )
-
-                speak(
-                    "Sorry boss. "
-                    "I couldn't process the web search."
+                    f"Web search error: {error}"
                 )
 
             continue
@@ -751,12 +698,7 @@ def conversation_mode():
             except Exception as error:
 
                 print(
-                    f"App Error: {error}"
-                )
-
-                speak(
-                    "Sorry boss. "
-                    "I couldn't open that application."
+                    f"App error: {error}"
                 )
 
             continue
@@ -772,10 +714,6 @@ def conversation_mode():
                     "Let me take a look."
                 )
 
-                print(
-                    "VEGA is analyzing the screen..."
-                )
-
                 response = analyze_screen(
                     command
                 )
@@ -787,11 +725,10 @@ def conversation_mode():
             except Exception as error:
 
                 print(
-                    f"Screen Analysis Error: {error}"
+                    f"Screen analysis error: {error}"
                 )
 
                 speak(
-                    "Sorry boss. "
                     "I couldn't analyze the screen."
                 )
 
@@ -800,15 +737,9 @@ def conversation_mode():
         # Automatic Web Detection
         try:
 
-            use_web = should_use_web(
+            if should_use_web(
                 command
-            )
-
-            if use_web:
-
-                print(
-                    "VEGA detected that current information is required."
-                )
+            ):
 
                 speak(
                     "Let me check the latest information."
@@ -840,7 +771,7 @@ def conversation_mode():
         except Exception as error:
 
             print(
-                f"Automatic web detection error: {error}"
+                f"Web routing error: {error}"
             )
 
         # AI Conversation
@@ -858,18 +789,13 @@ def conversation_mode():
                 response
             )
 
-            print(
-                "\nVEGA is still active..."
-            )
-
         except Exception as error:
 
             print(
-                f"\nVEGA Error: {error}"
+                f"VEGA error: {error}"
             )
 
             speak(
-                "Sorry boss. "
                 "I ran into a problem while processing that."
             )
 
@@ -890,44 +816,26 @@ def main():
     )
 
     print(
-        "\nAI Brain: Ollama"
+        "AI Brain: Ollama"
     )
 
     print(
-        "Voice Recognition: Ready"
+        "Speech Recognition: Faster Whisper"
     )
 
     print(
-        "Voice Output: Ready"
+        "Screen Vision: Moondream"
     )
 
     print(
-        "Application Control: Ready"
+        "Screen Reasoning: Llama 3.2"
     )
 
     print(
-        "Volume Control: Ready"
+        "VEGA online."
     )
 
-    print(
-        "Web Search: Ready"
-    )
-
-    print(
-        "Screen Awareness: Ready"
-    )
-
-    print(
-        "Automatic Web Detection: Ready"
-    )
-
-    print(
-        "Voice Interruption: Ready"
-    )
-
-    print(
-        "\nVEGA online."
-    )
+    calibrate_microphone()
 
     try:
 
@@ -943,7 +851,7 @@ def main():
     except KeyboardInterrupt:
 
         print(
-            "\n\nVEGA manually stopped."
+            "\nVEGA manually stopped."
         )
 
     finally:
@@ -955,7 +863,7 @@ def main():
         shutdown_audio()
 
         print(
-            "\nVEGA OFFLINE"
+            "VEGA OFFLINE"
         )
 
 

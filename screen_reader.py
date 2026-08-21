@@ -6,6 +6,7 @@ from ollama import Client
 
 
 VISION_MODEL = "moondream"
+REASONING_MODEL = "llama3.2:3b"
 
 client = Client(
     host="http://localhost:11434",
@@ -18,12 +19,12 @@ def capture_screen():
 
     file_path = os.path.join(
         tempfile.gettempdir(),
-        "vega_screen.jpg"
+        "vega_screen.png"
     )
 
     screenshot = ImageGrab.grab()
 
-    max_width = 1280
+    max_width = 1920
 
     if screenshot.width > max_width:
 
@@ -47,14 +48,122 @@ def capture_screen():
 
     screenshot.save(
         file_path,
-        format="JPEG",
-        quality=80
+        format="PNG"
     )
 
     return file_path
 
 
-# Screen Analysis
+# Vision
+def inspect_screen(image_path, question):
+
+    command = question.lower()
+
+    if any(
+        phrase in command
+        for phrase in [
+            "error",
+            "code",
+            "terminal",
+            "traceback",
+            "exception"
+        ]
+    ):
+
+        prompt = (
+            "Inspect this computer screenshot carefully. "
+            "Extract the important visible text exactly where possible. "
+            "Focus especially on code, terminal output, errors, exceptions, "
+            "file names, line numbers and visible messages. "
+            "Do not solve the problem. "
+            "Only describe and extract what you can actually see."
+        )
+
+    elif any(
+        phrase in command
+        for phrase in [
+            "click",
+            "button",
+            "where should i",
+            "what should i do",
+            "guide me"
+        ]
+    ):
+
+        prompt = (
+            "Inspect this computer screenshot. "
+            "Describe the visible interface. "
+            "List the important visible buttons, links, fields, menus, tabs "
+            "and their approximate locations. "
+            "Do not decide what the user should click. "
+            "Only report what is visibly present."
+        )
+
+    else:
+
+        prompt = (
+            "Describe this computer screen accurately. "
+            "Mention the main application, important visible text, "
+            "errors, messages and useful interface elements. "
+            "Do not invent anything."
+        )
+
+    response = client.chat(
+        model=VISION_MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+                "images": [
+                    image_path
+                ]
+            }
+        ]
+    )
+
+    return response.message.content.strip()
+
+
+# Screen Reasoning
+def reason_about_screen(question, visual_context):
+
+    prompt = f"""
+You are VEGA, a desktop AI assistant.
+
+The user asked:
+{question}
+
+A vision model inspected the user's current screen and reported:
+
+{visual_context}
+
+Answer the user's actual question using only the screen information above.
+
+Rules:
+
+- Do not invent text or UI controls that were not observed.
+- If the screen information is insufficient, clearly say so.
+- If an error is visible, explain the likely cause and practical next step.
+- If code is visible, reason about the visible code or error.
+- If the user asks what to click, identify the most relevant visible control
+  and explain where it is.
+- If the user asks for a page summary, summarize only visible information.
+- Keep the answer concise and conversational because it will be spoken aloud.
+"""
+
+    response = client.chat(
+        model=REASONING_MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    return response.message.content.strip()
+
+
 # Screen Analysis
 def analyze_screen(question=None):
 
@@ -62,134 +171,43 @@ def analyze_screen(question=None):
 
     try:
 
-        image_path = capture_screen()
-
         if not question:
 
-            question = "Describe what is visible on this screen."
-
-        command = question.lower()
-
-        if any(
-            phrase in command
-            for phrase in [
-                "what should i click",
-                "where should i click",
-                "which button should i click",
-                "which button should i press",
-                "what should i do next",
-                "where should i go",
-                "how do i continue"
-            ]
-        ):
-
-            prompt = (
-                "Look carefully at this computer screenshot. "
-                "Tell me which visible button, link, field, menu, or control "
-                "I should use next. "
-                "Give its visible name, approximate location, "
-                "and one short reason. "
-                "Do not repeat these instructions. "
-                "Do not invent anything that is not visible."
+            question = (
+                "What is visible on my screen?"
             )
 
-        elif any(
-            phrase in command
-            for phrase in [
-                "explain this error",
-                "what is this error",
-                "what's this error",
-                "fix this error",
-                "help me with this error"
-            ]
-        ):
-
-            prompt = (
-                "Look at this computer screenshot and focus on the visible error. "
-                "Tell me what the error says, what it probably means, "
-                "and one practical next step. "
-                "Do not repeat these instructions."
-            )
-
-        elif any(
-            phrase in command
-            for phrase in [
-                "what is wrong with this code",
-                "what's wrong with this code",
-                "check this code",
-                "explain this code"
-            ]
-        ):
-
-            prompt = (
-                "Look at the code visible in this screenshot. "
-                "Identify the most obvious visible problem and explain it briefly. "
-                "Do not invent code that is not visible. "
-                "Do not repeat these instructions."
-            )
-
-        elif any(
-            phrase in command
-            for phrase in [
-                "summarize this page",
-                "summarise this page",
-                "read this page",
-                "explain this page"
-            ]
-        ):
-
-            prompt = (
-                "Look at this webpage screenshot. "
-                "Summarize the most important visible information in a few sentences. "
-                "Do not repeat these instructions."
-            )
-
-        elif any(
-            phrase in command
-            for phrase in [
-                "read this message",
-                "explain this message"
-            ]
-        ):
-
-            prompt = (
-                "Look at the visible message in this screenshot. "
-                "Tell me what it says and explain the important part briefly. "
-                "Do not repeat these instructions."
-            )
-
-        else:
-
-            prompt = (
-                "Describe what is visible on this computer screen. "
-                "Mention the main application, important text, "
-                "and important controls you can clearly see. "
-                "Do not repeat these instructions."
-            )
+        image_path = capture_screen()
 
         print(
             f"Sending screen to {VISION_MODEL}..."
         )
 
-        response = client.chat(
-            model=VISION_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                    "images": [
-                        image_path
-                    ]
-                }
-            ]
+        visual_context = inspect_screen(
+            image_path,
+            question
         )
 
-        answer = response.message.content.strip()
+        if not visual_context:
+
+            return (
+                "I could capture the screen, "
+                "but I couldn't understand what was visible."
+            )
+
+        print(
+            "VEGA is reasoning about the screen..."
+        )
+
+        answer = reason_about_screen(
+            question,
+            visual_context
+        )
 
         if not answer:
 
             return (
-                "I can see the screen, "
+                "I could see the screen, "
                 "but I couldn't determine the answer."
             )
 
