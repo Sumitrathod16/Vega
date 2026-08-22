@@ -1,0 +1,12 @@
+SpeechRecognition
+PyAudio
+faster-whisper
+ollama
+Pillow
+pygame
+psutil
+pycaw
+comtypes
+requests
+beautifulsoup4
+duckduckgo-search
