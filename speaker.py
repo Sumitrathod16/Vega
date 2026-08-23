@@ -1,23 +1,53 @@
+import os
+import re
 import asyncio
+import tempfile
+import threading
+
 import edge_tts
 import pygame
-import os
-import tempfile
-import uuid
-import threading
-import time
 
 
-VOICE = "en-US-GuyNeural"
+ENGLISH_VOICE = "en-US-GuyNeural"
+HINDI_VOICE = "hi-IN-MadhurNeural"
 
+speech_lock = threading.Lock()
 stop_speaking = threading.Event()
 
-#CREATE AUDIO
-async def create_audio(text, file_path):
+pygame.mixer.init()
+
+
+# Language Detection
+def contains_hindi(text):
+
+    return bool(
+        re.search(
+            r"[\u0900-\u097F]",
+            text
+        )
+    )
+
+
+# Voice Selection
+def choose_voice(text):
+
+    if contains_hindi(text):
+        return HINDI_VOICE
+
+    return ENGLISH_VOICE
+
+
+# Audio Generation
+async def create_audio(
+    text,
+    file_path
+):
+
+    voice = choose_voice(text)
 
     communicate = edge_tts.Communicate(
         text=text,
-        voice=VOICE
+        voice=voice
     )
 
     await communicate.save(
@@ -25,92 +55,57 @@ async def create_audio(text, file_path):
     )
 
 
-def stop_voice():
-
-    stop_speaking.set()
-
-    try:
-
-        if pygame.mixer.get_init():
-            pygame.mixer.music.stop()
-
-    except Exception:
-        pass
-
-
-def shutdown_audio():
-
-    stop_speaking.set()
-
-    try:
-
-        if pygame.mixer.get_init():
-
-            pygame.mixer.music.stop()
-
-            try:
-                pygame.mixer.music.unload()
-
-            except Exception:
-                pass
-
-            pygame.mixer.quit()
-
-    except Exception:
-        pass
-
-#SPEAK AUDIO
+# Speech
 def speak(text):
+
+    if not text:
+        return
 
     stop_speaking.clear()
 
-    print(
-        f"\nVEGA: {text}"
-    )
-
     file_path = os.path.join(
         tempfile.gettempdir(),
-        f"vega_{uuid.uuid4().hex}.mp3"
+        "vega_speech.mp3"
     )
 
     try:
 
-        asyncio.run(
-            create_audio(
-                text,
-                file_path
+        with speech_lock:
+
+            asyncio.run(
+                create_audio(
+                    text,
+                    file_path
+                )
             )
-        )
-
-        if not pygame.mixer.get_init():
-            pygame.mixer.init()
-
-        pygame.mixer.music.load(
-            file_path
-        )
-
-        pygame.mixer.music.play()
-
-        while pygame.mixer.music.get_busy():
 
             if stop_speaking.is_set():
+                return
 
-                pygame.mixer.music.stop()
+            pygame.mixer.music.load(
+                file_path
+            )
 
-                break
+            pygame.mixer.music.play()
 
-            time.sleep(0.05)
+            while pygame.mixer.music.get_busy():
 
-        try:
-            pygame.mixer.music.unload()
+                if stop_speaking.is_set():
 
-        except Exception:
-            pass
+                    pygame.mixer.music.stop()
+                    break
+
+                pygame.time.Clock().tick(20)
+
+            try:
+                pygame.mixer.music.unload()
+            except Exception:
+                pass
 
     except Exception as error:
 
         print(
-            f"Voice Error: {error}"
+            f"Speech error: {error}"
         )
 
     finally:
@@ -124,15 +119,38 @@ def speak(text):
             pass
 
 
-if __name__ == "__main__":
+# Stop Voice
+def stop_voice():
+
+    stop_speaking.set()
 
     try:
 
-        speak(
-            "Hello boss. "
-            "VEGA voice system is working."
-        )
+        if pygame.mixer.get_init():
 
-    finally:
+            pygame.mixer.music.stop()
 
-        shutdown_audio()
+    except Exception:
+        pass
+
+
+# Audio Shutdown
+def shutdown_audio():
+
+    stop_voice()
+
+    try:
+
+        if pygame.mixer.get_init():
+
+            pygame.mixer.music.stop()
+
+            try:
+                pygame.mixer.music.unload()
+            except Exception:
+                pass
+
+            pygame.mixer.quit()
+
+    except Exception:
+        pass

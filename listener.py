@@ -30,7 +30,10 @@ from system_control import (
 )
 
 from web_search import search_web
-from screen_reader import analyze_screen
+from screen_reader import(
+    analyze_screen,
+    clear_screen_memory
+)
 
 
 recognizer = sr.Recognizer()
@@ -287,6 +290,8 @@ def wait_for_wake_word():
     )
 
     wake_words = [
+        "here we go",
+        "vega",
         "hey vega",
         "hello vega",
         "okay vega",
@@ -411,20 +416,65 @@ def extract_app_name(command):
 def is_screen_command(command):
 
     screen_words = [
-        "screen",
-        "this error",
-        "this code",
-        "this page",
-        "this message",
-        "what should i click",
-        "which button",
-        "where should i click",
+        "what is on my screen",
+        "what's on my screen",
         "what do you see",
         "what can you see",
-        "look at this",
-        "look at my",
-        "check this",
-        "guide me"
+        "read my screen",
+        "look at my screen",
+        "check my screen",
+        "analyze my screen",
+        "analyse my screen",
+        "describe my screen",
+
+        "explain this error",
+        "what is this error",
+        "what's this error",
+        "fix this error",
+        "help me with this error",
+
+        "what is wrong with this code",
+        "what's wrong with this code",
+        "check this code",
+        "explain this code",
+
+        "summarize this page",
+        "summarise this page",
+        "read this page",
+        "explain this page",
+
+        "read this message",
+        "explain this message",
+
+        "what should i click",
+        "where should i click",
+        "which button should i press",
+        "which button should i click",
+        "what should i do next",
+        "what should i do here",
+        "guide me",
+
+        "check again",
+        "look again",
+        "check now",
+        "look now",
+        "what changed",
+        "what has changed",
+        "did it work",
+        "did that work",
+        "is it fixed",
+        "is it fixed now",
+        "is the error fixed",
+        "is the error gone",
+        "is the error still there",
+        "same error",
+        "what happened",
+        "check the screen again",
+        "i changed the code",
+        "i fixed the code",
+        "i made the changes",
+        "after the change",
+        "after my changes"
     ]
 
     return any(
@@ -445,7 +495,6 @@ def extract_number(command):
 
         if word.isdigit():
             return int(word)
-
     return None
 
 
