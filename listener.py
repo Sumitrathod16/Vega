@@ -30,10 +30,13 @@ from system_control import (
 )
 
 from web_search import search_web
-from screen_reader import(
+
+from screen_reader import (
     analyze_screen,
     clear_screen_memory
 )
+
+from agent import execute_goal
 
 
 recognizer = sr.Recognizer()
@@ -119,6 +122,7 @@ def transcribe_audio(audio):
             segment_text = segment.text.strip()
 
             if segment_text:
+
                 text_parts.append(
                     segment_text
                 )
@@ -130,7 +134,7 @@ def transcribe_audio(audio):
         if not text:
             return None
 
-        return text.lower()
+        return text
 
     except Exception as error:
 
@@ -154,6 +158,31 @@ def transcribe_audio(audio):
 
         except Exception:
             pass
+
+
+# Agent Command
+def is_agent_command(command):
+
+    command = command.lower()
+
+    agent_phrases = [
+        "and then",
+        "after that",
+        "then",
+        "and search",
+        "and open",
+        "and check",
+        "and increase",
+        "and decrease",
+        "and set",
+        "and mute",
+        "and unmute"
+    ]
+
+    return any(
+        phrase in command
+        for phrase in agent_phrases
+    )
 
 
 # Listening
@@ -240,8 +269,10 @@ def listen_for_interruption():
         if not command:
             continue
 
+        command_lower = command.lower()
+
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in interrupt_phrases
         ):
 
@@ -290,7 +321,6 @@ def wait_for_wake_word():
     )
 
     wake_words = [
-        "here we go",
         "vega",
         "hey vega",
         "hello vega",
@@ -308,8 +338,10 @@ def wait_for_wake_word():
         if not text:
             continue
 
+        text_lower = text.lower()
+
         if any(
-            phrase in text
+            phrase in text_lower
             for phrase in wake_words
         ):
 
@@ -495,6 +527,7 @@ def extract_number(command):
 
         if word.isdigit():
             return int(word)
+
     return None
 
 
@@ -535,13 +568,16 @@ def conversation_mode():
         if not command:
             continue
 
+        command = command.strip()
+        command_lower = command.lower()
+
         print(
             f"You: {command}"
         )
 
         # Shutdown
         if should_shutdown(
-            command
+            command_lower
         ):
 
             speak(
@@ -553,7 +589,7 @@ def conversation_mode():
 
         # Sleep
         if should_sleep(
-            command
+            command_lower
         ):
 
             speak(
@@ -563,15 +599,50 @@ def conversation_mode():
 
             return "sleep"
 
+        # Agent Mode
+        if is_agent_command(
+            command_lower
+        ):
+
+            try:
+
+                speak(
+                    "Alright boss. I'll handle that."
+                )
+
+                print(
+                    "VEGA Agent Mode activated."
+                )
+
+                response = execute_goal(
+                    command
+                )
+
+                speak_with_interrupt(
+                    response
+                )
+
+            except Exception as error:
+
+                print(
+                    f"Agent error: {error}"
+                )
+
+                speak(
+                    "I couldn't complete that task."
+                )
+
+            continue
+
         # Set Volume
         if (
-            "set volume to" in command
+            "set volume to" in command_lower
             or
-            "set the volume to" in command
+            "set the volume to" in command_lower
         ):
 
             level = extract_volume_level(
-                command
+                command_lower
             )
 
             if level is None:
@@ -590,7 +661,7 @@ def conversation_mode():
 
         # Volume Up
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in [
                 "volume up",
                 "increase volume",
@@ -600,7 +671,7 @@ def conversation_mode():
         ):
 
             amount = extract_number(
-                command
+                command_lower
             )
 
             if amount is None:
@@ -614,7 +685,7 @@ def conversation_mode():
 
         # Volume Down
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in [
                 "volume down",
                 "decrease volume",
@@ -624,7 +695,7 @@ def conversation_mode():
         ):
 
             amount = extract_number(
-                command
+                command_lower
             )
 
             if amount is None:
@@ -638,7 +709,7 @@ def conversation_mode():
 
         # Unmute
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in [
                 "unmute",
                 "turn sound on"
@@ -653,7 +724,7 @@ def conversation_mode():
 
         # Mute
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in [
                 "mute",
                 "turn sound off"
@@ -668,7 +739,7 @@ def conversation_mode():
 
         # Current Volume
         if any(
-            phrase in command
+            phrase in command_lower
             for phrase in [
                 "current volume",
                 "what is the volume",
@@ -687,7 +758,7 @@ def conversation_mode():
 
         # Manual Web Search
         search_query = extract_search_query(
-            command
+            command_lower
         )
 
         if search_query:
@@ -729,7 +800,7 @@ def conversation_mode():
 
         # Application Control
         app_name = extract_app_name(
-            command
+            command_lower
         )
 
         if app_name:
@@ -752,9 +823,27 @@ def conversation_mode():
 
             continue
 
+        # Clear Screen Context
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "forget the screen",
+                "clear screen memory",
+                "forget previous screen"
+            ]
+        ):
+
+            clear_screen_memory()
+
+            speak(
+                "Screen context cleared."
+            )
+
+            continue
+
         # Screen Awareness
         if is_screen_command(
-            command
+            command_lower
         ):
 
             try:
@@ -878,6 +967,10 @@ def main():
 
     print(
         "Screen Reasoning: Llama 3.2"
+    )
+
+    print(
+        "Agent Mode: Ready"
     )
 
     print(
