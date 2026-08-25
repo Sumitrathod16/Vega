@@ -1,0 +1,10 @@
+ollama
+SpeechRecognition
+faster-whisper
+edge-tts
+pygame
+pycaw
+comtypes
+ddgs
+Pillow
+PyAudio
