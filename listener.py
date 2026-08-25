@@ -38,6 +38,19 @@ from screen_reader import (
 
 from agent import execute_goal
 
+from browser_control import (
+    open_url,
+    browser_search,
+    new_tab,
+    close_tab,
+    next_tab,
+    previous_tab,
+    browser_back,
+    browser_forward,
+    refresh_page,
+    close_browser
+)
+
 
 recognizer = sr.Recognizer()
 
@@ -547,6 +560,61 @@ def extract_volume_level(command):
     return None
 
 
+# Website Detection
+def get_website(command):
+
+    websites = {
+        "github": "https://github.com",
+        "youtube": "https://youtube.com",
+        "google": "https://google.com",
+        "linkedin": "https://linkedin.com",
+        "instagram": "https://instagram.com",
+        "gmail": "https://mail.google.com"
+    }
+
+    clean_command = command.lower()
+
+    for name, url in websites.items():
+
+        if (
+            f"open {name}" in clean_command
+            or
+            f"go to {name}" in clean_command
+        ):
+
+            return url
+
+    return None
+
+
+# Browser Search Query
+def extract_browser_search(command):
+
+    command = command.lower().strip()
+
+    phrases = [
+        "search browser for",
+        "search google for",
+        "google search for",
+        "search on google for"
+    ]
+
+    for phrase in phrases:
+
+        if phrase in command:
+
+            query = command.replace(
+                phrase,
+                "",
+                1
+            ).strip()
+
+            if query:
+                return query
+
+    return None
+
+
 # Conversation Mode
 def conversation_mode():
 
@@ -756,6 +824,175 @@ def conversation_mode():
 
             continue
 
+        # Browser Website
+        website = get_website(
+            command_lower
+        )
+
+        if website:
+
+            try:
+
+                message = open_url(
+                    website
+                )
+
+                speak(
+                    message
+                )
+
+            except Exception as error:
+
+                print(
+                    f"Browser website error: {error}"
+                )
+
+                speak(
+                    "I couldn't open that website."
+                )
+
+            continue
+
+        # Browser Back
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "go back",
+                "browser back",
+                "previous page"
+            ]
+        ):
+
+            speak(
+                browser_back()
+            )
+
+            continue
+
+        # Browser Forward
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "go forward",
+                "browser forward",
+                "next page"
+            ]
+        ):
+
+            speak(
+                browser_forward()
+            )
+
+            continue
+
+        # Browser Refresh
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "refresh page",
+                "refresh the page",
+                "reload page",
+                "reload the page"
+            ]
+        ):
+
+            speak(
+                refresh_page()
+            )
+
+            continue
+
+        # Browser New Tab
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "open new tab",
+                "new tab",
+                "create new tab"
+            ]
+        ):
+
+            speak(
+                new_tab()
+            )
+
+            continue
+
+        # Browser Close Tab
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "close tab",
+                "close this tab",
+                "close current tab"
+            ]
+        ):
+
+            speak(
+                close_tab()
+            )
+
+            continue
+
+        # Browser Next Tab
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "next tab",
+                "switch to next tab"
+            ]
+        ):
+
+            speak(
+                next_tab()
+            )
+
+            continue
+
+        # Browser Previous Tab
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "previous tab",
+                "switch to previous tab"
+            ]
+        ):
+
+            speak(
+                previous_tab()
+            )
+
+            continue
+
+        # Browser Search
+        browser_query = extract_browser_search(
+            command_lower
+        )
+
+        if browser_query:
+
+            try:
+
+                message = browser_search(
+                    browser_query
+                )
+
+                speak(
+                    message
+                )
+
+            except Exception as error:
+
+                print(
+                    f"Browser search error: {error}"
+                )
+
+                speak(
+                    "I couldn't search in the browser."
+                )
+
+            continue
+
         # Manual Web Search
         search_query = extract_search_query(
             command_lower
@@ -796,6 +1033,10 @@ def conversation_mode():
                     f"Web search error: {error}"
                 )
 
+                speak(
+                    "I couldn't complete the web search."
+                )
+
             continue
 
         # Application Control
@@ -819,6 +1060,10 @@ def conversation_mode():
 
                 print(
                     f"App error: {error}"
+                )
+
+                speak(
+                    "I couldn't open that application."
                 )
 
             continue
@@ -974,6 +1219,10 @@ def main():
     )
 
     print(
+        "Browser Control: Ready"
+    )
+
+    print(
         "VEGA online."
     )
 
@@ -1001,6 +1250,8 @@ def main():
         interrupt_listener_stop.set()
 
         stop_voice()
+
+        close_browser()
 
         shutdown_audio()
 

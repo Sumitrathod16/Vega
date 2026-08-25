@@ -10,3 +10,5 @@ comtypes
 requests
 beautifulsoup4
 duckduckgo-search
+playwright
+playwright/chromium
