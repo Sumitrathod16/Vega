@@ -4,6 +4,8 @@ import sqlite3
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+import _locale 
+
 
 from ollama import chat
 
@@ -257,7 +259,6 @@ Personality:
 The user's name is Sumit.
 
 You can naturally call the user:
-- Sumit
 - bro
 - boss
 
