@@ -20,25 +20,13 @@ from speaker import (
 
 from apps import open_application
 
-from config import config
-
-from memory import (
-    save_fact,
-    search_memory,
-    get_all_facts
-)
-
 from system_control import (
     volume_up,
     volume_down,
     mute,
     unmute,
     set_volume,
-    get_volume,
-    media_control,
-    lock_pc,
-    get_system_status,
-    take_screenshot
+    get_volume
 )
 
 from web_search import search_web
@@ -64,12 +52,11 @@ from browser_control import (
 )
 
 
-speech_cfg = config.get("speech", {})
-
 recognizer = sr.Recognizer()
+
 recognizer.dynamic_energy_threshold = True
-recognizer.energy_threshold = speech_cfg.get("energy_threshold", 300)
-recognizer.pause_threshold = speech_cfg.get("pause_threshold", 0.7)
+recognizer.energy_threshold = 300
+recognizer.pause_threshold = 0.7
 recognizer.non_speaking_duration = 0.3
 
 interrupt_listener_stop = threading.Event()
@@ -79,9 +66,9 @@ interrupt_listener_stop = threading.Event()
 print("Loading VEGA speech recognition model...")
 
 whisper_model = WhisperModel(
-    speech_cfg.get("whisper_model", "small"),
-    device=speech_cfg.get("whisper_device", "cpu"),
-    compute_type=speech_cfg.get("whisper_compute_type", "int8")
+    "small",
+    device="cpu",
+    compute_type="int8"
 )
 
 print("Speech recognition model ready.")
@@ -834,136 +821,6 @@ def conversation_mode():
             speak(
                 f"Current volume is {level} percent."
             )
-
-            continue
-
-        # System Status
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "system status",
-                "check system",
-                "cpu status",
-                "battery status",
-                "system info",
-                "how is my system"
-            ]
-        ):
-
-            speak(
-                get_system_status()
-            )
-
-            continue
-
-        # Lock PC
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "lock pc",
-                "lock computer",
-                "lock screen",
-                "lock workstation"
-            ]
-        ):
-
-            speak(
-                lock_pc()
-            )
-
-            continue
-
-        # Media Controls
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "play music",
-                "pause music",
-                "toggle music",
-                "media play",
-                "media pause"
-            ]
-        ):
-
-            speak(
-                media_control("play_pause")
-            )
-
-            continue
-
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "next song",
-                "next track",
-                "skip song",
-                "skip track"
-            ]
-        ):
-
-            speak(
-                media_control("next")
-            )
-
-            continue
-
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "previous song",
-                "previous track",
-                "last song"
-            ]
-        ):
-
-            speak(
-                media_control("previous")
-            )
-
-            continue
-
-        # Take Screenshot
-        if any(
-            phrase in command_lower
-            for phrase in [
-                "take a screenshot",
-                "take screenshot",
-                "capture screen"
-            ]
-        ):
-
-            speak(
-                take_screenshot()
-            )
-
-            continue
-
-        # Memory - Remember
-        if command_lower.startswith("remember that ") or command_lower.startswith("remember "):
-            content = command_lower.replace("remember that ", "", 1).replace("remember ", "", 1).strip()
-            if " is " in content:
-                k, v = content.split(" is ", 1)
-                speak(save_fact(k, v))
-            elif "=" in content:
-                k, v = content.split("=", 1)
-                speak(save_fact(k, v))
-            else:
-                speak(save_fact("note", content))
-
-            continue
-
-        # Memory - Recall
-        if "what do you remember" in command_lower or command_lower.startswith("recall "):
-            query = command_lower.replace("what do you remember about", "").replace("what do you remember", "").replace("recall", "").strip()
-            if not query:
-                facts = get_all_facts()
-                if facts:
-                    fact_str = ", ".join([f"{f['key']}: {f['value']}" for f in facts])
-                    speak(f"I remember the following: {fact_str}")
-                else:
-                    speak("I don't have any saved memories yet.")
-            else:
-                speak(search_memory(query))
 
             continue
 
