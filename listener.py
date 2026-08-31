@@ -59,6 +59,23 @@ from memory import (
     log_interaction
 )
 
+from input_control import (
+    type_text,
+    press_key,
+    press_multiple_keys,
+    copy,
+    paste,
+    cut,
+    select_all,
+    save,
+    undo,
+    redo,
+    find,
+    new_item,
+    close_window,
+    switch_window,
+    open_task_manager
+)
 
 recognizer = sr.Recognizer()
 
@@ -847,6 +864,81 @@ def extract_browser_search(command):
 
     return None
 
+# Typing Command
+def extract_typing_text(command):
+
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "type ",
+        "write ",
+        "type this ",
+        "write this "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            text = clean_command[
+                len(prefix):
+            ].strip()
+
+            if text:
+                return text
+
+    return None
+
+
+# Key Command
+def extract_key_command(command):
+
+    command = command.strip().lower()
+
+    prefixes = [
+        "press ",
+        "hit "
+    ]
+
+    for prefix in prefixes:
+
+        if command.startswith(
+            prefix
+        ):
+
+            key_text = command[
+                len(prefix):
+            ].strip()
+
+            if not key_text:
+                return None
+
+            replacements = {
+                "control": "ctrl",
+                "plus": " ",
+                "+": " "
+            }
+
+            for old, new in replacements.items():
+
+                key_text = key_text.replace(
+                    old,
+                    new
+                )
+
+            keys = [
+                key
+                for key in key_text.split()
+                if key
+            ]
+
+            return keys
+
+    return None
+
 
 # Conversation Mode
 def conversation_mode():
@@ -1000,7 +1092,59 @@ def conversation_mode():
             )
 
             continue
+        #Keyboard routing
+        typing_text = extract_typing_text(
+            command
+        )
+        if typing_text:
+            response = type_text(
+                typing_text
+            )
+            print(
+                response
+            )
+            continue
+        
+        #Keyboard Shortucuts
+        shortcut_commands ={
+            "copy": copy,
+            "copy this": copy,
+            "paste": paste,
+            "paste here": paste,
+            "cut": cut,
+            "cut this": cut,
+            "select all": select_all,
+            "save": save,
+            "save this": save,
+            "undo": undo,
+            "redo": redo,
+            "find": find,
+            "new file": new_item,
+            "close window": close_window,
+            "switch window": switch_window,
+            "open task manager": open_task_manager
+        }
+        if command_lower in shortcut_commands:
+            response = shortcut_commands[
+                command_lower
+            ]()
+            print(
+                response
+            )
+            continue
 
+        #Press Keys
+        keys = extract_key_command(
+            command
+        )
+        if keys:
+            response = press_multiple_keys(
+                keys
+            )
+            print(
+                response
+            )
+            continue
         # Agent Mode
         if is_agent_command(
             command_lower

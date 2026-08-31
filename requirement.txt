@@ -12,3 +12,4 @@ beautifulsoup4
 duckduckgo-search
 playwright
 playwright/chromium
+pyautogui
