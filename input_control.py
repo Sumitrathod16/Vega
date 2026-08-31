@@ -1,4 +1,5 @@
 import time
+
 import pyautogui
 
 
@@ -280,18 +281,201 @@ def press_multiple_keys(keys):
         return "I couldn't execute that keyboard command."
 
 
+# Move Mouse
+def move_mouse(
+    x,
+    y,
+    duration=0.3
+):
+
+    try:
+
+        pyautogui.moveTo(
+            int(x),
+            int(y),
+            duration=duration
+        )
+
+        return f"Mouse moved to {x}, {y}."
+
+    except Exception as error:
+
+        print(
+            f"Mouse move error: {error}"
+        )
+
+        return "I couldn't move the mouse."
+
+
+# Left Click
+def left_click():
+
+    try:
+
+        pyautogui.click()
+
+        return "Clicked."
+
+    except Exception as error:
+
+        print(
+            f"Left click error: {error}"
+        )
+
+        return "I couldn't click."
+
+
+# Right Click
+def right_click():
+
+    try:
+
+        pyautogui.rightClick()
+
+        return "Right clicked."
+
+    except Exception as error:
+
+        print(
+            f"Right click error: {error}"
+        )
+
+        return "I couldn't right click."
+
+
+# Double Click
+def double_click():
+
+    try:
+
+        pyautogui.doubleClick(
+            interval=0.15
+        )
+
+        return "Double clicked."
+
+    except Exception as error:
+
+        print(
+            f"Double click error: {error}"
+        )
+
+        return "I couldn't double click."
+
+
+# Middle Click
+def middle_click():
+
+    try:
+
+        pyautogui.middleClick()
+
+        return "Middle clicked."
+
+    except Exception as error:
+
+        print(
+            f"Middle click error: {error}"
+        )
+
+        return "I couldn't middle click."
+
+
+# Scroll
+def scroll_mouse(amount):
+
+    try:
+
+        pyautogui.scroll(
+            int(amount)
+        )
+
+        return "Scrolled."
+
+    except Exception as error:
+
+        print(
+            f"Scroll error: {error}"
+        )
+
+        return "I couldn't scroll."
+
+
+# Scroll Up
+def scroll_up(amount=5):
+
+    return scroll_mouse(
+        abs(int(amount))
+    )
+
+
+# Scroll Down
+def scroll_down(amount=5):
+
+    return scroll_mouse(
+        -abs(int(amount))
+    )
+
+
+# Drag Mouse
+def drag_mouse(
+    x,
+    y,
+    duration=0.5
+):
+
+    try:
+
+        pyautogui.dragTo(
+            int(x),
+            int(y),
+            duration=duration,
+            button="left"
+        )
+
+        return f"Dragged to {x}, {y}."
+
+    except Exception as error:
+
+        print(
+            f"Mouse drag error: {error}"
+        )
+
+        return "I couldn't drag the mouse."
+
+
+# Mouse Position
+def get_mouse_position():
+
+    try:
+
+        position = pyautogui.position()
+
+        return {
+            "x": position.x,
+            "y": position.y
+        }
+
+    except Exception as error:
+
+        print(
+            f"Mouse position error: {error}"
+        )
+
+        return None
+
+
 # Test
 if __name__ == "__main__":
 
     print(
-        "Keyboard control ready."
+        "Keyboard and mouse control ready."
     )
 
     time.sleep(2)
 
+    position = get_mouse_position()
+
     print(
-        press_hotkey(
-            "ctrl",
-            "a"
-        )
+        position
     )

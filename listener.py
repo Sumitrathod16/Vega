@@ -74,7 +74,16 @@ from input_control import (
     new_item,
     close_window,
     switch_window,
-    open_task_manager
+    open_task_manager,
+    move_mouse,
+    left_click,
+    double_click,
+    right_click,
+    middle_click,
+    scroll_up,
+    scroll_down,
+    drag_mouse,
+    get_mouse_position
 )
 
 recognizer = sr.Recognizer()
@@ -939,7 +948,74 @@ def extract_key_command(command):
 
     return None
 
+# Mouse Coordinates
+def extract_mouse_coordinates(command):
+    command=command.lower().strip()
+    phrases =[
+        "move mouse to",
+        "move cursor to",
+        "move to"
+    ]
+    for phrase in phrases:
+        if command.startswith(
+            phrase
+        ):
+          text = command[
+            len(phrase):
+          ].strip()
+          numbers =[
+            int(word)
+            for word in text.replace(
+                ",",
+                " "
+            ).split()
+            if word.isdigit()
+          ]
+          if len(numbers)>= 2:
+            return (
+                numbers[0],
+                numbers[1]
+            )
+    return None
+# Drag Coordinates
 
+def extract_drag_coordinates(command):
+    command=command.lower().strip()
+    phrases=[
+        "drag to",
+        "drag mouse to",
+        "drag cursor to"
+    ]                
+    for phrase in phrases:
+        if command.startswith(
+            phrase
+        ):
+         text = command[
+            len(phrase):
+         ].strip()
+
+         numbers = [
+            int(word)
+            for word in text.replace(
+                ",",
+                " "
+            ).split()
+            if word.isdigit()
+         ]
+         if len(numbers)>=2:
+            return(
+                numbers[0],
+                numbers[1]
+            )
+    return None
+
+# Scroll Amount
+def extract_scroll_amount(command):
+    words = command.split()
+    for word in words:
+        if word.isdigit():
+            return int(word)
+    return 5                    
 # Conversation Mode
 def conversation_mode():
 
@@ -1092,7 +1168,7 @@ def conversation_mode():
             )
 
             continue
-        #Keyboard routing
+        # Keyboard Routing
         typing_text = extract_typing_text(
             command
         )
@@ -1104,8 +1180,164 @@ def conversation_mode():
                 response
             )
             continue
-        
-        #Keyboard Shortucuts
+                # Move Mouse
+        mouse_coordinates = extract_mouse_coordinates(
+            command
+        )
+
+        if mouse_coordinates:
+
+            x, y = mouse_coordinates
+
+            response = move_mouse(
+                x,
+                y
+            )
+
+            print(
+                response
+            )
+
+            continue
+
+        # Drag Mouse
+        drag_coordinates = extract_drag_coordinates(
+            command
+        )
+
+        if drag_coordinates:
+
+            x, y = drag_coordinates
+
+            response = drag_mouse(
+                x,
+                y
+            )
+
+            print(
+                response
+            )
+
+            continue
+
+        # Double Click
+        if command_lower in [
+            "double click",
+            "double click here"
+        ]:
+
+            print(
+                double_click()
+            )
+
+            continue
+
+        # Right Click
+        if command_lower in [
+            "right click",
+            "right click here"
+        ]:
+
+            print(
+                right_click()
+            )
+
+            continue
+
+        # Middle Click
+        if command_lower in [
+            "middle click"
+        ]:
+
+            print(
+                middle_click()
+            )
+
+            continue
+
+        # Left Click
+        if command_lower in [
+            "click",
+            "left click",
+            "click here"
+        ]:
+
+            print(
+                left_click()
+            )
+
+            continue
+
+        # Scroll Up
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "scroll up",
+                "move page up"
+            ]
+        ):
+
+            amount = extract_scroll_amount(
+                command_lower
+            )
+
+            print(
+                scroll_up(
+                    amount
+                )
+            )
+
+            continue
+
+        # Scroll Down
+        if any(
+            phrase in command_lower
+            for phrase in [
+                "scroll down",
+                "move page down"
+            ]
+        ):
+
+            amount = extract_scroll_amount(
+                command_lower
+            )
+
+            print(
+                scroll_down(
+                    amount
+                )
+            )
+
+            continue
+
+        # Mouse Position
+        if command_lower in [
+            "mouse position",
+            "cursor position",
+            "where is the mouse",
+            "where is the cursor"
+        ]:
+
+            position = get_mouse_position()
+
+            if position:
+
+                response = (
+                    f"Mouse position is "
+                    f"X {position['x']} "
+                    f"and Y {position['y']}."
+                )
+
+                print(
+                    response
+                )
+
+                speak(
+                    response
+                )
+
+            continue
+        # Keyboard Shortcuts
         shortcut_commands ={
             "copy": copy,
             "copy this": copy,
@@ -1133,7 +1365,7 @@ def conversation_mode():
             )
             continue
 
-        #Press Keys
+        # Press Keys
         keys = extract_key_command(
             command
         )
