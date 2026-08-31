@@ -51,6 +51,14 @@ from browser_control import (
     close_browser
 )
 
+from memory import (
+    save_fact,
+    delete_fact,
+    search_memory,
+    get_all_facts,
+    log_interaction
+)
+
 
 recognizer = sr.Recognizer()
 
@@ -63,7 +71,9 @@ interrupt_listener_stop = threading.Event()
 
 
 # Whisper Model
-print("Loading VEGA speech recognition model...")
+print(
+    "Loading VEGA speech recognition model..."
+)
 
 whisper_model = WhisperModel(
     "small",
@@ -71,7 +81,9 @@ whisper_model = WhisperModel(
     compute_type="int8"
 )
 
-print("Speech recognition model ready.")
+print(
+    "Speech recognition model ready."
+)
 
 
 # Microphone Calibration
@@ -132,7 +144,10 @@ def transcribe_audio(audio):
 
         for segment in segments:
 
-            segment_text = segment.text.strip()
+            segment_text = (
+                segment.text
+                .strip()
+            )
 
             if segment_text:
 
@@ -171,31 +186,6 @@ def transcribe_audio(audio):
 
         except Exception:
             pass
-
-
-# Agent Command
-def is_agent_command(command):
-
-    command = command.lower()
-
-    agent_phrases = [
-        "and then",
-        "after that",
-        "then",
-        "and search",
-        "and open",
-        "and check",
-        "and increase",
-        "and decrease",
-        "and set",
-        "and mute",
-        "and unmute"
-    ]
-
-    return any(
-        phrase in command
-        for phrase in agent_phrases
-    )
 
 
 # Listening
@@ -401,6 +391,255 @@ def should_shutdown(command):
     )
 
 
+# Agent Command
+def is_agent_command(command):
+
+    command = command.lower()
+
+    agent_phrases = [
+        "and then",
+        "after that",
+        "then",
+        "and search",
+        "and open",
+        "and check",
+        "and increase",
+        "and decrease",
+        "and set",
+        "and mute",
+        "and unmute"
+    ]
+
+    return any(
+        phrase in command
+        for phrase in agent_phrases
+    )
+
+
+# Save Memory Extraction
+def extract_memory_save(command):
+
+    clean_command = (
+        command
+        .strip()
+    )
+
+    lower_command = (
+        clean_command
+        .lower()
+    )
+
+    prefixes = [
+        "remember that ",
+        "remember my ",
+        "remember ",
+        "save that ",
+        "save this memory "
+    ]
+
+    content = None
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            content = clean_command[
+                len(prefix):
+            ].strip()
+
+            break
+
+    if not content:
+        return None
+
+    separators = [
+        " is ",
+        " = ",
+        " as "
+    ]
+
+    lower_content = content.lower()
+
+    for separator in separators:
+
+        if separator in lower_content:
+
+            index = lower_content.find(
+                separator
+            )
+
+            key = content[
+                :index
+            ].strip()
+
+            value = content[
+                index + len(separator):
+            ].strip()
+
+            if key.lower().startswith(
+                "my "
+            ):
+
+                key = key[3:].strip()
+
+            if key and value:
+
+                return (
+                    key,
+                    value
+                )
+
+    return None
+
+
+# Forget Memory Extraction
+def extract_memory_delete(command):
+
+    clean_command = (
+        command
+        .strip()
+    )
+
+    lower_command = (
+        clean_command
+        .lower()
+    )
+
+    prefixes = [
+        "forget about ",
+        "forget my ",
+        "forget that ",
+        "forget ",
+        "delete memory ",
+        "delete memory about "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            key = clean_command[
+                len(prefix):
+            ].strip()
+
+            if key.lower().startswith(
+                "my "
+            ):
+
+                key = key[3:].strip()
+
+            if key:
+                return key
+
+    return None
+
+
+# Memory Search Extraction
+def extract_memory_search(command):
+
+    clean_command = (
+        command
+        .strip()
+    )
+
+    lower_command = (
+        clean_command
+        .lower()
+    )
+
+    phrases = [
+        "what do you remember about ",
+        "what do you know about ",
+        "search your memory for ",
+        "search memory for ",
+        "check your memory for "
+    ]
+
+    for phrase in phrases:
+
+        if lower_command.startswith(
+            phrase
+        ):
+
+            return clean_command[
+                len(phrase):
+            ].strip()
+
+    return None
+
+
+# Memory List Command
+def is_memory_list_command(command):
+
+    phrases = [
+        "what do you remember",
+        "what do you remember about me",
+        "show my memories",
+        "show stored memories",
+        "tell me what you remember",
+        "what have you remembered"
+    ]
+
+    command = command.strip().lower()
+
+    return command in phrases
+
+
+# Memory Search Formatter
+def format_memory_results(results):
+
+    if not results:
+
+        return (
+            "I couldn't find anything matching that "
+            "in my memory."
+        )
+
+    lines = []
+
+    for memory in results[:5]:
+
+        lines.append(
+            f"{memory['key']} is "
+            f"{memory['value']}"
+        )
+
+    return ". ".join(
+        lines
+    ) + "."
+
+
+# All Memory Formatter
+def format_all_memories():
+
+    facts = get_all_facts()
+
+    if not facts:
+
+        return (
+            "I don't have any persistent memories stored yet."
+        )
+
+    lines = []
+
+    for fact in facts[:15]:
+
+        lines.append(
+            f"{fact['key']} is "
+            f"{fact['value']}"
+        )
+
+    return (
+        "Here's what I remember. "
+        + ". ".join(lines)
+        + "."
+    )
+
+
 # Search Query
 def extract_search_query(command):
 
@@ -471,26 +710,21 @@ def is_screen_command(command):
         "analyze my screen",
         "analyse my screen",
         "describe my screen",
-
         "explain this error",
         "what is this error",
         "what's this error",
         "fix this error",
         "help me with this error",
-
         "what is wrong with this code",
         "what's wrong with this code",
         "check this code",
         "explain this code",
-
         "summarize this page",
         "summarise this page",
         "read this page",
         "explain this page",
-
         "read this message",
         "explain this message",
-
         "what should i click",
         "where should i click",
         "which button should i press",
@@ -498,7 +732,6 @@ def is_screen_command(command):
         "what should i do next",
         "what should i do here",
         "guide me",
-
         "check again",
         "look again",
         "check now",
@@ -667,6 +900,107 @@ def conversation_mode():
 
             return "sleep"
 
+        # Save Memory
+        memory_save = extract_memory_save(
+            command
+        )
+
+        if memory_save:
+
+            key, value = memory_save
+
+            response = save_fact(
+                key,
+                value,
+                "user"
+            )
+
+            print(
+                f"Memory saved: {key} = {value}"
+            )
+
+            speak(
+                f"Got it. I'll remember that "
+                f"{key} is {value}."
+            )
+
+            log_interaction(
+                command,
+                response
+            )
+
+            continue
+
+        # Forget Memory
+        memory_delete = extract_memory_delete(
+            command
+        )
+
+        if memory_delete:
+
+            response = delete_fact(
+                memory_delete
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            log_interaction(
+                command,
+                response
+            )
+
+            continue
+
+        # Search Memory
+        memory_query = extract_memory_search(
+            command
+        )
+
+        if memory_query:
+
+            results = search_memory(
+                memory_query
+            )
+
+            response = format_memory_results(
+                results
+            )
+
+            speak_with_interrupt(
+                response
+            )
+
+            log_interaction(
+                command,
+                response
+            )
+
+            continue
+
+        # List Memory
+        if is_memory_list_command(
+            command_lower
+        ):
+
+            response = format_all_memories()
+
+            speak_with_interrupt(
+                response
+            )
+
+            log_interaction(
+                command,
+                response
+            )
+
+            continue
+
         # Agent Mode
         if is_agent_command(
             command_lower
@@ -833,12 +1167,10 @@ def conversation_mode():
 
             try:
 
-                message = open_url(
-                    website
-                )
-
                 speak(
-                    message
+                    open_url(
+                        website
+                    )
                 )
 
             except Exception as error:
@@ -973,12 +1305,10 @@ def conversation_mode():
 
             try:
 
-                message = browser_search(
-                    browser_query
-                )
-
                 speak(
-                    message
+                    browser_search(
+                        browser_query
+                    )
                 )
 
             except Exception as error:
@@ -1212,6 +1542,10 @@ def main():
 
     print(
         "Screen Reasoning: Llama 3.2"
+    )
+
+    print(
+        "Persistent Memory: SQLite"
     )
 
     print(
