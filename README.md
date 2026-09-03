@@ -81,7 +81,7 @@ Vega/
 |-- system_control.py
 |-- web_search.py
 |-- screen_reader.py
-|-- requirements.txt
+|-- requirement.txt
 |-- README.md
 |
 `-- venv/
@@ -163,7 +163,7 @@ Response
 Recommended environment:
 
 - Windows 10/11
-- Python 3.11+
+- Python 3.11 through 3.13 (Python 3.14 is not currently supported by all audio dependencies)
 - Microphone
 - Internet connection for web features
 - Ollama
@@ -172,7 +172,10 @@ Recommended environment:
 Install Python dependencies:
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirement.txt
+
+# Playwright needs its browser binaries installed separately.
+playwright install chromium
 ```
 
 ## Ollama Setup
@@ -232,7 +235,8 @@ Activate it:
 Install dependencies:
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirement.txt
+playwright install chromium
 ```
 
 Make sure the Ollama models are available:

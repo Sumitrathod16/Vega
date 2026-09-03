@@ -4,12 +4,8 @@ faster-whisper
 ollama
 Pillow
 pygame
-psutil
 pycaw
-comtypes
-requests
-beautifulsoup4
-duckduckgo-search
+edge-tts
+ddgs
 playwright
-playwright/chromium
 pyautogui
