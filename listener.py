@@ -85,6 +85,20 @@ from input_control import (
     drag_mouse,
     get_mouse_position
 )
+from file_control import(
+    create_folder,
+    create_file,
+    open_path,
+    rename_path,
+    copy_path,
+    move_path,
+    delete_path,
+    search_files,
+    list_folder,
+    get_recent_files,
+    get_file_info,
+    read_text_file
+)
 
 recognizer = sr.Recognizer()
 
@@ -94,6 +108,8 @@ recognizer.pause_threshold = 0.7
 recognizer.non_speaking_duration = 0.3
 
 interrupt_listener_stop = threading.Event()
+
+pending_file_delete = None
 
 
 # Whisper Model
@@ -953,8 +969,7 @@ def extract_mouse_coordinates(command):
     command=command.lower().strip()
     phrases =[
         "move mouse to",
-        "move cursor to",
-        "move to"
+        "move cursor to"
     ]
     for phrase in phrases:
         if command.startswith(
@@ -1015,9 +1030,361 @@ def extract_scroll_amount(command):
     for word in words:
         if word.isdigit():
             return int(word)
-    return 5                    
+    return 5   
+
+# Create Folder Command
+def extract_create_folder(command):
+
+    clean_command = command.strip()
+
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "create folder ",
+        "make folder ",
+        "create a folder ",
+        "make a folder "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(prefix):
+
+            content = clean_command[
+                len(prefix):
+            ].strip()
+
+            if not content:
+                return None
+
+            if " in " in content.lower():
+
+                index = content.lower().rfind(
+                    " in "
+                )
+
+                folder_name = content[
+                    :index
+                ].strip()
+
+                location = content[
+                    index + 4:
+                ].strip()
+
+                return (
+                    folder_name,
+                    location
+                )
+
+            return (
+                content,
+                "desktop"
+            )
+
+    return None
+
+
+# Create File Command
+def extract_create_file(command):
+
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "create file ",
+        "create a file ",
+        "make file ",
+        "make a file "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(prefix):
+
+            content = clean_command[
+                len(prefix):
+            ].strip()
+
+            if not content:
+                return None
+
+            if " in " in content.lower():
+
+                index = content.lower().rfind(
+                    " in "
+                )
+
+                file_name = content[
+                    :index
+                ].strip()
+
+                location = content[
+                    index + 4:
+                ].strip()
+
+                return (
+                    file_name,
+                    location
+                )
+
+            return (
+                content,
+                "desktop"
+            )
+
+    return None
+
+
+# File Search Command
+def extract_file_search(command):
+
+    clean_command = command.strip()
+
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "find file ",
+        "find folder ",
+        "search file ",
+        "search files for ",
+        "search computer for ",
+        "find my "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            query = clean_command[
+                len(prefix):
+            ].strip()
+
+            if query:
+                return query
+
+    return None
+
+
+# Open Path Command
+def extract_open_file_command(command):
+
+    clean_command = command.strip()
+
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "open file ",
+        "open folder ",
+        "open path "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            path = clean_command[
+                len(prefix):
+            ].strip()
+
+            if path:
+                return path
+
+    return None
+
+
+# Rename Command
+def extract_rename_command(command):
+
+    clean_command = command.strip()
+
+    lower_command = clean_command.lower()
+
+    if not lower_command.startswith(
+        "rename "
+    ):
+        return None
+
+    content = clean_command[
+        len("rename "):
+    ].strip()
+
+    separators = [
+        " to ",
+        " as "
+    ]
+
+    lower_content = content.lower()
+
+    for separator in separators:
+
+        if separator in lower_content:
+
+            index = lower_content.rfind(
+                separator
+            )
+
+            old_path = content[
+                :index
+            ].strip()
+
+            new_name = content[
+                index + len(separator):
+            ].strip()
+
+            if old_path and new_name:
+
+                return (
+                    old_path,
+                    new_name
+                )
+
+    return None
+
+
+# Move Command
+def extract_move_command(command):
+
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    if not lower_command.startswith(
+        "move "
+    ):
+        return None
+
+    content = clean_command[
+        len("move "):
+    ].strip()
+
+    if " to " not in content.lower():
+        return None
+
+    index = content.lower().rfind(
+        " to "
+    )
+
+    source = content[
+        :index
+    ].strip()
+
+    destination = content[
+        index + 4:
+    ].strip()
+
+    if source and destination:
+
+        return (
+            source,
+            destination
+        )
+
+    return None
+
+
+# Copy Command
+def extract_copy_command(command):
+
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    if not lower_command.startswith(
+        "copy "
+    ):
+        return None
+
+    content = clean_command[
+        len("copy "):
+    ].strip()
+
+    if " to " not in content.lower():
+        return None
+
+    index = content.lower().rfind(
+        " to "
+    )
+
+    source = content[
+        :index
+    ].strip()
+
+    destination = content[
+        index + 4:
+    ].strip()
+
+    if source and destination:
+
+        return (
+            source,
+            destination
+        )
+
+    return None
+
+
+# Delete Command
+def extract_delete_command(command):
+
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "delete file ",
+        "delete folder ",
+        "delete "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            path = clean_command[
+                len(prefix):
+            ].strip()
+
+            if path:
+                return path
+
+    return None
+
+
+# Read File Command
+def extract_read_file_command(command):
+
+    clean_command = command.strip()
+
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "read file ",
+        "read this file ",
+        "show contents of ",
+        "read contents of "
+    ]
+
+    for prefix in prefixes:
+
+        if lower_command.startswith(
+            prefix
+        ):
+
+            path = clean_command[
+                len(prefix):
+            ].strip()
+
+            if path:
+                return path
+
+    return None                 
 # Conversation Mode
 def conversation_mode():
+
+    global pending_file_delete
 
     speak(
         "Yes boss?"
@@ -1376,6 +1743,394 @@ def conversation_mode():
             print(
                 response
             )
+            continue
+                # Confirm File Delete
+        if pending_file_delete:
+
+            if command_lower in [
+                "yes",
+                "yes delete it",
+                "confirm",
+                "confirm delete",
+                "delete it"
+            ]:
+
+                success, response = delete_path(
+                    pending_file_delete
+                )
+
+                pending_file_delete = None
+
+                print(
+                    response
+                )
+
+                speak(
+                    response
+                )
+
+                continue
+
+            if command_lower in [
+                "no",
+                "cancel",
+                "cancel delete",
+                "don't delete",
+                "do not delete"
+            ]:
+
+                pending_file_delete = None
+
+                speak(
+                    "Delete cancelled."
+                )
+
+                continue
+
+
+        # Create Folder
+        create_folder_data = extract_create_folder(
+            command
+        )
+
+        if create_folder_data:
+
+            folder_name, location = create_folder_data
+
+            success, response = create_folder(
+                folder_name,
+                location
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Create File
+        create_file_data = extract_create_file(
+            command
+        )
+
+        if create_file_data:
+
+            file_name, location = create_file_data
+
+            success, response = create_file(
+                file_name,
+                location
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # File Search
+        file_query = extract_file_search(
+            command
+        )
+
+        if file_query:
+
+            results = search_files(
+                file_query,
+                "home",
+                limit=10
+            )
+
+            if not results:
+
+                response = (
+                    f"I couldn't find anything "
+                    f"matching {file_query}."
+                )
+
+            else:
+
+                print(
+                    "\nFile Search Results:"
+                )
+
+                for index, item in enumerate(
+                    results,
+                    start=1
+                ):
+
+                    print(
+                        f"{index}. "
+                        f"{item['name']} "
+                        f"- {item['path']}"
+                    )
+
+                first_result = results[0]
+
+                response = (
+                    f"I found {len(results)} results. "
+                    f"The first one is "
+                    f"{first_result['name']}."
+                )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Open File Or Folder
+        open_target = extract_open_file_command(
+            command
+        )
+
+        if open_target:
+
+            success, response = open_path(
+                open_target
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Rename File
+        rename_data = extract_rename_command(
+            command
+        )
+
+        if rename_data:
+
+            source, new_name = rename_data
+
+            success, response = rename_path(
+                source,
+                new_name
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Move File
+        move_data = extract_move_command(
+            command
+        )
+
+        if move_data:
+
+            source, destination = move_data
+
+            success, response = move_path(
+                source,
+                destination
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Copy File
+        copy_data = extract_copy_command(
+            command
+        )
+
+        if copy_data:
+
+            source, destination = copy_data
+
+            success, response = copy_path(
+                source,
+                destination
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Delete File
+        delete_target = extract_delete_command(
+            command
+        )
+
+        if delete_target:
+
+            pending_file_delete = delete_target
+
+            response = (
+                f"Are you sure you want me to delete "
+                f"{delete_target}?"
+            )
+
+            print(
+                response
+            )
+
+            speak(
+                response
+            )
+
+            continue
+
+
+        # Recent Files
+        if command_lower in [
+            "show recent files",
+            "recent files",
+            "latest files",
+            "show latest downloads"
+        ]:
+
+            results = get_recent_files(
+                "downloads",
+                10
+            )
+
+            if not results:
+
+                speak(
+                    "I couldn't find recent files."
+                )
+
+            else:
+
+                print(
+                    "\nRecent Files:"
+                )
+
+                for index, item in enumerate(
+                    results,
+                    start=1
+                ):
+
+                    print(
+                        f"{index}. "
+                        f"{item['name']} "
+                        f"- {item['modified']}"
+                    )
+
+                speak(
+                    f"I found {len(results)} recent files. "
+                    f"The latest is {results[0]['name']}."
+                )
+
+            continue
+
+
+        # List Folder
+        if command_lower.startswith(
+            "list files in "
+        ):
+
+            location = command[
+                len("list files in "):
+            ].strip()
+
+            results = list_folder(
+                location
+            )
+
+            if not results:
+
+                speak(
+                    "That folder is empty or unavailable."
+                )
+
+            else:
+
+                print(
+                    f"\nContents of {location}:"
+                )
+
+                for item in results:
+
+                    print(
+                        f"{item['type']}: "
+                        f"{item['name']}"
+                    )
+
+                speak(
+                    f"There are {len(results)} items."
+                )
+
+            continue
+
+
+        # Read File
+        read_target = extract_read_file_command(
+            command
+        )
+
+        if read_target:
+
+            success, content = read_text_file(
+                read_target
+            )
+
+            if not success:
+
+                speak(
+                    content
+                )
+
+                continue
+
+            print(
+                "\nFile Content:\n"
+            )
+
+            print(
+                content
+            )
+
+            response = ask_vega(
+                "Summarize this file clearly:\n\n"
+                + content
+            )
+
+            speak_with_interrupt(
+                response
+            )
+
             continue
         # Agent Mode
         if is_agent_command(
