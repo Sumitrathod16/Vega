@@ -99,6 +99,11 @@ from file_control import(
     get_file_info,
     read_text_file
 )
+from coding_assistant import(
+    understand_file,
+    understand_screen,
+    explain_error
+)
 
 recognizer = sr.Recognizer()
 
@@ -1380,7 +1385,27 @@ def extract_read_file_command(command):
             if path:
                 return path
 
-    return None                 
+    return None   
+def extract_code_file_command(command):
+      clean_command= command.strip()
+      lower_command=clean_command.lower()
+      
+      prefixes=["Ex plain code file",
+      "explain file",
+      "analyze code file",
+      "analyse code file",
+      "find bugs in file",
+      "find errors in file",
+      "debug file"
+      ]
+      for prefix in prefixes:
+          if lower_command.startswith(prefix.lower()):
+              path = clean_command[len(prefix):].strip()
+
+              if path:
+                  return prefix.strip(), path
+      return None
+
 # Conversation Mode
 def conversation_mode():
 
@@ -2132,6 +2157,78 @@ def conversation_mode():
             )
 
             continue
+        #Coding assistant - File
+        
+        code_file_command= extract_code_file_command(
+            command
+        )
+        if code_file_command:
+            action, path= code_file_command
+            if(
+                "bug" in action
+                or
+                "error" in action
+                or
+                "debug" in action
+                or
+                "check" in action
+                or
+                "analyze" in action
+                or
+                "analyse" in action
+            ):
+                response = understand_file(
+                    path,
+                    mode="issues"
+                )
+            else:
+                response = understand_file(
+                    path,
+                    mode="explain"
+                )
+            print("\n VEGA coding assistant:\n")
+            print(response)
+            speak_with_interrupt(response)
+            continue
+
+            #Coding Assistant - screen Explain
+            if command_lower in [
+                "explain the code",
+                "explain this code",
+                "explain code on screen",
+                "what does this code do",
+                "explain my code"
+            ]:
+             response = understand_screen(
+                mode="explain"
+             )
+             print("\n VEGA coding Assistant\n")
+             print(response)
+             speak_with_iterrupt(response)
+             continue
+
+            #Coding assistant- screen dubug
+
+            if command_lower in[
+                "find the error in this code",
+                "find error in this code",
+                "check this code for errors",
+                "debug this code",
+                "find bugs in this code",
+                "what is wrong with this code",
+                "what's wrong with this code"
+            ]:
+              
+              response= understand_screen(
+                mode="issues"
+              )
+              print(
+                response
+              )
+              speak_with_interrupt(
+                response
+              )
+              continue
         # Agent Mode
         if is_agent_command(
             command_lower
