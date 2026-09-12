@@ -9,3 +9,4 @@ edge-tts
 ddgs
 playwright
 pyautogui
+opencv

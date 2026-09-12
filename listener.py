@@ -106,7 +106,16 @@ from coding_assistant import (
     generate_code,
     refactor_file,
     refactor_screen,
-    convert_code
+    convert_code,
+    safe_edit_file,
+    run_code_file,
+    check_code_file,
+    debug_code_file,
+    autonomous_coding_loop
+)
+from vision_scanner import(
+    scan_camera,
+    camera_available
 )
 
 recognizer = sr.Recognizer()
@@ -119,6 +128,7 @@ recognizer.non_speaking_duration = 0.3
 interrupt_listener_stop = threading.Event()
 
 pending_file_delete = None
+
 
 # Whisper Model
 print(
@@ -1465,6 +1475,136 @@ def extract_refactor_file_command(command):
     return None
 
 
+def extract_run_code_command(command):
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    commands = [
+        ("run and debug file ", "debug"),
+        ("execute and debug file ", "debug"),
+        ("test and debug file ", "debug"),
+        ("compile file ", "check"),
+        ("check syntax of file ", "check"),
+        ("check code file ", "check"),
+        ("run file ", "run"),
+        ("execute file ", "run"),
+        ("test file ", "run")
+    ]
+
+    for prefix, mode in commands:
+        if lower_command.startswith(prefix):
+            path = clean_command[len(prefix):].strip()
+            if path:
+                return mode, path
+
+    return None
+
+
+def extract_safe_edit_file_command(command):
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "edit and save file ",
+        "update file ",
+        "fix and save file ",
+        "refactor and save file ",
+        "optimize and save file ",
+        "apply changes to file "
+    ]
+
+    for prefix in prefixes:
+        if lower_command.startswith(prefix):
+            remainder = clean_command[len(prefix):].strip()
+
+            if not remainder:
+                return None
+
+            lower_remainder = remainder.lower()
+
+            if " with " in lower_remainder:
+                split_index = lower_remainder.find(" with ")
+                path = remainder[:split_index].strip()
+                instruction = remainder[split_index + 6:].strip()
+
+                if path:
+                    return (
+                        path,
+                        instruction or "Improve and fix this code."
+                    )
+
+            return (
+                remainder,
+                "Improve and fix this code."
+            )
+
+    return None
+
+
+
+def extract_autonomous_coding_command(command):
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "autofix file ",
+        "auto fix file ",
+        "fix automatically file ",
+        "autonomous fix file ",
+        "repair file automatically ",
+        "debug and fix file "
+    ]
+
+    for prefix in prefixes:
+        if lower_command.startswith(prefix):
+            remainder = clean_command[len(prefix):].strip()
+
+            if not remainder:
+                return None
+
+            lower_remainder = remainder.lower()
+
+            if " with " in lower_remainder:
+                index = lower_remainder.find(" with ")
+                path = remainder[:index].strip()
+                goal = remainder[index + 6:].strip()
+
+                if path:
+                    return (
+                        path,
+                        goal or "Fix the file so it runs successfully."
+                    )
+
+            return (
+                remainder,
+                "Fix the file so it runs successfully while preserving intended behavior."
+            )
+
+    return None
+
+def extract_camera_scan_command(command):
+    command_lower = command.lower().strip()
+    scan_phrases=[
+        "scan camera",
+        "scan my camera",
+        "scan in front of me",
+        "scan what's in front of me",
+        "scan what is in front of me",
+        "what do you see in front of me",
+        "what can you see in front of me",
+        "look through the camera",
+        "check the camera",
+        "identify this object",
+        "what is this object",
+        "scan this object"
+    ]
+
+    if any(
+        phrase in command_lower
+        for phrase in scan_phrases
+    ):
+      return command
+    return None  
 # Conversation Mode
 def conversation_mode():
 
@@ -2216,6 +2356,151 @@ def conversation_mode():
             )
 
             continue
+        # Coding Assistant - Autonomous Coding Loop
+        autonomous_command = extract_autonomous_coding_command(
+            command
+        )
+
+        if autonomous_command:
+            path, goal = autonomous_command
+
+            print("\nVEGA Autonomous Coding Mode:\n")
+            print(f"File: {path}")
+            print(f"Goal: {goal}")
+
+            speak(
+                "Autonomous coding mode started. I will diagnose, safely edit, run, and verify the file."
+            )
+
+            result = autonomous_coding_loop(
+                path,
+                goal=goal,
+                max_attempts=3,
+                timeout=20
+            )
+
+            print("\nAutonomous Coding Result:\n")
+            print(result["message"])
+
+            for item in result.get("history", []):
+                print(
+                    f"Attempt {item.get('attempt')} | "
+                    f"{item.get('stage')} | "
+                    f"{'success' if item.get('success') else 'failed'}"
+                )
+
+                if item.get("message"):
+                    print(item["message"])
+
+            if result.get("stdout"):
+                print("\nFinal STDOUT:\n")
+                print(result["stdout"])
+
+            if result.get("stderr"):
+                print("\nFinal STDERR:\n")
+                print(result["stderr"])
+
+            if result.get("backup_paths"):
+                print("\nBackups:\n")
+                for backup_path in result["backup_paths"]:
+                    print(backup_path)
+
+            if result["success"]:
+                speak(
+                    "The autonomous coding loop completed successfully. The file now runs successfully."
+                )
+            else:
+                speak_with_interrupt(
+                    result["message"]
+                )
+
+            continue
+
+        # Coding Assistant - Run / Check / Debug
+        run_code_command = extract_run_code_command(command)
+
+        if run_code_command:
+            run_mode, path = run_code_command
+
+            print("\nVEGA Run & Debug:\n")
+            print(f"File: {path}")
+            print(f"Mode: {run_mode}")
+
+            if run_mode == "check":
+                result = check_code_file(path)
+
+                print(result["message"])
+
+                if result.get("stdout"):
+                    print("\nSTDOUT:\n")
+                    print(result["stdout"])
+
+                if result.get("stderr"):
+                    print("\nSTDERR:\n")
+                    print(result["stderr"])
+
+                if result["success"]:
+                    speak("The code check passed successfully.")
+                else:
+                    debug_result = debug_code_file(
+                        path,
+                        run_program=False
+                    )
+                    print("\nVEGA Debug Analysis:\n")
+                    print(debug_result["analysis"])
+                    speak_with_interrupt(debug_result["analysis"])
+
+            elif run_mode == "debug":
+                result = debug_code_file(path)
+                execution = result.get("execution") or {}
+
+                print(result["message"])
+
+                if execution.get("stdout"):
+                    print("\nSTDOUT:\n")
+                    print(execution["stdout"])
+
+                if execution.get("stderr"):
+                    print("\nSTDERR:\n")
+                    print(execution["stderr"])
+
+                print("\nVEGA Debug Analysis:\n")
+                print(result["analysis"])
+
+                if result["success"]:
+                    speak(
+                        "The program ran successfully. "
+                        "The output and analysis are in the console."
+                    )
+                else:
+                    speak_with_interrupt(result["analysis"])
+
+            else:
+                result = run_code_file(path)
+
+                print(result["message"])
+
+                if result.get("stdout"):
+                    print("\nSTDOUT:\n")
+                    print(result["stdout"])
+
+                if result.get("stderr"):
+                    print("\nSTDERR:\n")
+                    print(result["stderr"])
+
+                if result["success"]:
+                    speak(
+                        "The program completed successfully. "
+                        "Check the console for its output."
+                    )
+                else:
+                    debug_result = debug_code_file(path)
+                    print("\nVEGA Debug Analysis:\n")
+                    print(debug_result["analysis"])
+                    speak_with_interrupt(debug_result["analysis"])
+
+            continue
+
         # Coding Assistant - File Understanding
         code_file_command = extract_code_file_command(command)
 
@@ -2342,6 +2627,53 @@ def conversation_mode():
                 "I finished refactoring the code. "
                 "The complete version is in the console."
             )
+            continue
+
+        # Coding Assistant - Safe File Editing
+        safe_edit_command = extract_safe_edit_file_command(
+            command
+        )
+
+        if safe_edit_command:
+            path, instruction = safe_edit_command
+
+            print(
+                "\nVEGA Safe File Editing:\n"
+            )
+            print(
+                f"File: {path}"
+            )
+            print(
+                f"Instruction: {instruction}"
+            )
+
+            speak(
+                "I will create a backup first, then safely apply the code changes."
+            )
+
+            result = safe_edit_file(
+                path,
+                instruction
+            )
+
+            print(
+                result["message"]
+            )
+
+            if result.get("backup_path"):
+                print(
+                    f"Backup: {result['backup_path']}"
+                )
+
+            if result["success"]:
+                speak(
+                    "The file was updated successfully and the backup was created."
+                )
+            else:
+                speak_with_interrupt(
+                    result["message"]
+                )
+
             continue
 
         # Agent Mode
@@ -2758,7 +3090,26 @@ def conversation_mode():
             )
 
             continue
-
+        #Visual Scanner- Camera
+        camera_scan_command=(
+            extract_camera_scan_command(
+                command
+            )
+        )
+        if camera_scan_command:
+            print(
+                "VEGA is scanning the camera..."
+            )
+            response = scan_camera(
+                camera_scan_command
+            )
+            print(
+                f"\nVEGA vision:{response}"
+            )
+            speak_with_interrupt(
+                response
+            )
+            continue
         # Screen Awareness
         if is_screen_command(
             command_lower
