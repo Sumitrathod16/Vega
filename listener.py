@@ -99,10 +99,14 @@ from file_control import(
     get_file_info,
     read_text_file
 )
-from coding_assistant import(
+from coding_assistant import (
     understand_file,
     understand_screen,
-    explain_error
+    explain_error,
+    generate_code,
+    refactor_file,
+    refactor_screen,
+    convert_code
 )
 
 recognizer = sr.Recognizer()
@@ -115,7 +119,6 @@ recognizer.non_speaking_duration = 0.3
 interrupt_listener_stop = threading.Event()
 
 pending_file_delete = None
-
 
 # Whisper Model
 print(
@@ -901,10 +904,8 @@ def extract_typing_text(command):
     lower_command = clean_command.lower()
 
     prefixes = [
-        "type ",
-        "write ",
         "type this ",
-        "write this "
+        "type "
     ]
 
     for prefix in prefixes:
@@ -1387,24 +1388,82 @@ def extract_read_file_command(command):
 
     return None   
 def extract_code_file_command(command):
-      clean_command= command.strip()
-      lower_command=clean_command.lower()
-      
-      prefixes=["Ex plain code file",
-      "explain file",
-      "analyze code file",
-      "analyse code file",
-      "find bugs in file",
-      "find errors in file",
-      "debug file"
-      ]
-      for prefix in prefixes:
-          if lower_command.startswith(prefix.lower()):
-              path = clean_command[len(prefix):].strip()
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
 
-              if path:
-                  return prefix.strip(), path
-      return None
+    prefixes = [
+        "explain code file ",
+        "explain file ",
+        "analyze code file ",
+        "analyse code file ",
+        "check code file ",
+        "find bugs in file ",
+        "find errors in file ",
+        "debug file "
+    ]
+
+    for prefix in prefixes:
+        if lower_command.startswith(prefix):
+            path = clean_command[len(prefix):].strip()
+            if path:
+                return prefix.strip(), path
+
+    return None
+
+
+def extract_code_generation_command(command):
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "generate code for ",
+        "generate a ",
+        "create code for ",
+        "write code for ",
+        "build code for ",
+        "create a function for ",
+        "create a component for "
+    ]
+
+    for prefix in prefixes:
+        if lower_command.startswith(prefix):
+            request = clean_command[len(prefix):].strip()
+            if request:
+                return request
+
+    return None
+
+
+def extract_refactor_file_command(command):
+    clean_command = command.strip()
+    lower_command = clean_command.lower()
+
+    prefixes = [
+        "refactor file ",
+        "optimize file ",
+        "improve file ",
+        "fix file ",
+        "correct file "
+    ]
+
+    for prefix in prefixes:
+        if lower_command.startswith(prefix):
+            remainder = clean_command[len(prefix):].strip()
+            if not remainder:
+                return None
+
+            lower_remainder = remainder.lower()
+            if " with " in lower_remainder:
+                index = lower_remainder.find(" with ")
+                path = remainder[:index].strip()
+                instruction = remainder[index + 6:].strip()
+                if path:
+                    return path, instruction or "Improve and refactor this code."
+
+            return remainder, "Improve and refactor this code."
+
+    return None
+
 
 # Conversation Mode
 def conversation_mode():
@@ -2157,25 +2216,22 @@ def conversation_mode():
             )
 
             continue
-        #Coding assistant - File
-        
-        code_file_command= extract_code_file_command(
-            command
-        )
+        # Coding Assistant - File Understanding
+        code_file_command = extract_code_file_command(command)
+
         if code_file_command:
-            action, path= code_file_command
-            if(
-                "bug" in action
-                or
-                "error" in action
-                or
-                "debug" in action
-                or
-                "check" in action
-                or
-                "analyze" in action
-                or
-                "analyse" in action
+            action, path = code_file_command
+
+            if any(
+                keyword in action
+                for keyword in [
+                    "bug",
+                    "error",
+                    "debug",
+                    "check",
+                    "analyze",
+                    "analyse"
+                ]
             ):
                 response = understand_file(
                     path,
@@ -2186,49 +2242,108 @@ def conversation_mode():
                     path,
                     mode="explain"
                 )
-            print("\n VEGA coding assistant:\n")
+
+            print("\nVEGA Coding Assistant:\n")
             print(response)
             speak_with_interrupt(response)
             continue
 
-            #Coding Assistant - screen Explain
-            if command_lower in [
-                "explain the code",
-                "explain this code",
-                "explain code on screen",
-                "what does this code do",
-                "explain my code"
-            ]:
-             response = understand_screen(
+        # Coding Assistant - Screen Explain
+        if command_lower in [
+            "explain the code",
+            "explain this code",
+            "explain code on screen",
+            "what does this code do",
+            "explain my code"
+        ]:
+            response = understand_screen(
                 mode="explain"
-             )
-             print("\n VEGA coding Assistant\n")
-             print(response)
-             speak_with_iterrupt(response)
-             continue
+            )
 
-            #Coding assistant- screen dubug
+            print("\nVEGA Coding Assistant:\n")
+            print(response)
+            speak_with_interrupt(response)
+            continue
 
-            if command_lower in[
-                "find the error in this code",
-                "find error in this code",
-                "check this code for errors",
-                "debug this code",
-                "find bugs in this code",
-                "what is wrong with this code",
-                "what's wrong with this code"
-            ]:
-              
-              response= understand_screen(
+        # Coding Assistant - Screen Debug
+        if command_lower in [
+            "find the error in this code",
+            "find error in this code",
+            "check this code for errors",
+            "debug this code",
+            "find bugs in this code",
+            "what is wrong with this code",
+            "what's wrong with this code"
+        ]:
+            response = understand_screen(
                 mode="issues"
-              )
-              print(
-                response
-              )
-              speak_with_interrupt(
-                response
-              )
-              continue
+            )
+
+            print("\nVEGA Coding Assistant:\n")
+            print(response)
+            speak_with_interrupt(response)
+            continue
+
+        # Coding Assistant - Generate Code
+        generation_request = extract_code_generation_command(
+            command
+        )
+
+        if generation_request:
+            response = generate_code(
+                generation_request
+            )
+
+            print("\nVEGA Generated Code:\n")
+            print(response)
+            speak_with_interrupt(
+                "I generated the code. "
+                "You can see the complete result in the console."
+            )
+            continue
+
+        # Coding Assistant - Refactor Screen Code
+        if command_lower in [
+            "refactor this code",
+            "optimize this code",
+            "improve this code",
+            "fix this code",
+            "give me corrected code",
+            "give me the corrected code"
+        ]:
+            response = refactor_screen(
+                command
+            )
+
+            print("\nVEGA Refactored Code:\n")
+            print(response)
+            speak_with_interrupt(
+                "I generated the corrected code. "
+                "Check the console."
+            )
+            continue
+
+        # Coding Assistant - Refactor File
+        refactor_file_command = extract_refactor_file_command(
+            command
+        )
+
+        if refactor_file_command:
+            path, instruction = refactor_file_command
+
+            response = refactor_file(
+                path,
+                instruction
+            )
+
+            print("\nVEGA Refactored File:\n")
+            print(response)
+            speak_with_interrupt(
+                "I finished refactoring the code. "
+                "The complete version is in the console."
+            )
+            continue
+
         # Agent Mode
         if is_agent_command(
             command_lower

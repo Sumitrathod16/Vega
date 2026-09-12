@@ -462,3 +462,199 @@ def understand_screen(
         content,
         language
     )
+
+
+def generate_code(
+    request,
+    language="Unknown",
+    framework=""
+):
+    if not request:
+        return "Please tell me what code you want."
+
+    framework_context = ""
+
+    if framework:
+        framework_context = f"""
+Framework / technology:
+{framework}
+"""
+
+    prompt = f"""
+You are VEGA Coding Assistant.
+
+Generate production-quality code for the user's request.
+
+Requested language:
+{language}
+
+{framework_context}
+
+User request:
+{request}
+
+Rules:
+
+- Return complete usable code.
+- Do not omit important parts.
+- Use clean structure and readable names.
+- Avoid unnecessary comments.
+- Follow modern best practices.
+- If requirements are ambiguous, make sensible defaults.
+- Do not wrap the code in excessive explanation.
+
+After the code, give a short explanation of what it does.
+"""
+
+    try:
+        response = ollama.chat(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return response["message"]["content"].strip()
+
+    except Exception as error:
+        print(f"Code generation error: {error}")
+        return "I couldn't generate the code."
+
+
+def refactor_code(
+    code,
+    language="Unknown",
+    instruction="Improve this code."
+):
+    if not code:
+        return "There is no code to refactor."
+
+    prompt = f"""
+You are VEGA Coding Assistant.
+
+Programming language:
+{language}
+
+Refactor the provided code according to the user's instruction.
+
+Instruction:
+{instruction}
+
+Requirements:
+
+- Preserve intended behavior unless the instruction asks for a behavior change.
+- Fix obvious bugs when safe.
+- Improve readability.
+- Improve structure.
+- Remove unnecessary duplication.
+- Use appropriate naming.
+- Keep the implementation practical.
+- Return the COMPLETE corrected/refactored code.
+- Do not return only snippets or diffs.
+
+Code:
+
+{code}
+"""
+
+    try:
+        response = ollama.chat(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return response["message"]["content"].strip()
+
+    except Exception as error:
+        print(f"Code refactor error: {error}")
+        return "I couldn't refactor the code."
+
+
+def convert_code(
+    code,
+    source_language="Unknown",
+    target_language="Unknown"
+):
+    if not code:
+        return "There is no code to convert."
+
+    prompt = f"""
+You are VEGA Coding Assistant.
+
+Convert this code from:
+{source_language}
+
+to:
+{target_language}
+
+Rules:
+
+- Preserve functionality.
+- Use idiomatic patterns of the target language.
+- Return complete usable code.
+- Do not omit required imports or setup.
+- Avoid unnecessary explanation.
+
+Source code:
+
+{code}
+"""
+
+    try:
+        response = ollama.chat(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return response["message"]["content"].strip()
+
+    except Exception as error:
+        print(f"Code conversion error: {error}")
+        return "I couldn't convert the code."
+
+
+def refactor_file(
+    path,
+    instruction="Improve this code."
+):
+    file_data = get_code_from_file(path)
+
+    if not file_data["success"]:
+        return file_data["message"]
+
+    return refactor_code(
+        file_data["code"],
+        file_data["language"],
+        instruction
+    )
+
+
+def refactor_screen(
+    instruction="Improve this code."
+):
+    screen_data = get_code_from_screen()
+
+    if not screen_data["success"]:
+        return screen_data["message"]
+
+    content = screen_data["content"]
+    language = detect_language_from_code(content)
+
+    return refactor_code(
+        content,
+        language,
+        instruction
+    )
