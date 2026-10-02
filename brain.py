@@ -134,6 +134,7 @@ Use WEB when the user asks about things such as:
 - current company information
 - current schedules
 - information likely to have changed
+- information that is not widely known or documented
 
 Use LOCAL when:
 - general knowledge is enough
